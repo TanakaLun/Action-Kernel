@@ -35,7 +35,7 @@ jobs:
       - name: Initialize repo and sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://android.googlesource.com/kernel/manifest -b common-android12-5.10
+         repo init --depth=1 -u https://android.googlesource.com/kernel/manifest -b common-android12-5.10-198
          repo sync
          ls
          find common/android/ -name "abi_gki_protected_exports_*" -delete
