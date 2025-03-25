@@ -107,7 +107,7 @@ jobs:
           elif [ "${{ github.event.inputs.kernelsu_variant }}" == "SKSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/ShirkNeko/KernelSU/main/kernel/setup.sh" | bash -s susfs-dev 
           fi
-          if [ "${{ github.event.inputs.kernelsu_variant }}" = "KSUN" ]; then
+          if [ "${{ github.event.inputs.KSU_BRANCH }}" = "KSUN" ]; then
             DKSUVER=11998
             KSUD=KernelSU-Next
           else
