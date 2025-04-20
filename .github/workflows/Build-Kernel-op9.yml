@@ -50,7 +50,7 @@ jobs:
                               
       - name: Build kernel 
         run: |
-         cd kernel_workspace/kernel_platform
+         cd kernel_workspace
          ls
          BUILD_CONFIG=kernel/msm-5.4/build.config.msm.lemonade VARIANT=qgki LTO=full BUILD_KERNEL=1 build/build.sh
 
@@ -58,7 +58,7 @@ jobs:
         run: |
          git clone https://github.com/TanakaLun/AnyKernel3 --depth=1
          rm -rf ./AnyKernel3/.git
-         cp ./kernel_workspace/kernel_platform/out/* ./AnyKernel3
+         cp ./kernel_workspace/out/* ./AnyKernel3
                    
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
