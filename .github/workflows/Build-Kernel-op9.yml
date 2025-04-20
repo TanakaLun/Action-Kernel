@@ -34,13 +34,13 @@ jobs:
          
       - name: Initialize repo and sync
         run: |
-         mkdir kernel_workspace && cd kernel_workspace
+         mkdir kernel_build && cd kernel_build
          repo init -u https://github.com/toraidl/android_kernel_manifest -b oneplus/sm8350v_15.0.0_oneplus9pro
          repo sync --force-sync --no-clone-bundle --current-branch --no-tags -j$(nproc --all)
          
       - name: Modify kernel version parameters
         run: |
-         cd kernel_workspace                  
+         cd kernel_build                  
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          #sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
@@ -50,15 +50,15 @@ jobs:
                               
       - name: Build kernel 
         run: |
-         cd kernel_workspace
+         cd kernel_build
          ls
-         BUILD_CONFIG=kernel/msm-5.4/build.config.msm.lemonade VARIANT=qgki LTO=full BUILD_KERNEL=1 build/build.sh
+         BUILD_CONFIG=kernel/msm-5.4/build.config.msm.lemonade VARIANT=qgki LTO=thin BUILD_KERNEL=1 build/build.sh
 
       - name: Make AnyKernel3
         run: |
          git clone https://github.com/TanakaLun/AnyKernel3 --depth=1
          rm -rf ./AnyKernel3/.git
-         cp ./kernel_workspace/out/* ./AnyKernel3
+         cp ./kernel_build/out/* ./AnyKernel3
                    
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
