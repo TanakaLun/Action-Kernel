@@ -1,0 +1,66 @@
+name: Build Kernel
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+  
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          
+      - name: Configure Git
+        run: |
+         git config --global user.name "build"
+         git config --global user.email "3436378798@qq.com"
+         
+      - name: Install dependencies
+        run: |
+         sudo apt update && sudo apt upgrade -y
+         sudo apt install -y python3 git curl
+
+      - name: Install repo tool
+        run: |
+         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+         chmod a+x ~/repo
+         sudo mv ~/repo /usr/local/bin/repo
+         
+      - name: Initialize repo and sync
+        run: |
+         mkdir kernel_workspace && cd kernel_workspace
+         repo init -u https://github.com/toraidl/android_kernel_manifest -b oneplus/sm8350v_15.0.0_oneplus9pro
+         repo sync --force-sync --no-clone-bundle --current-branch --no-tags -j$(nproc --all)
+         
+      - name: Modify kernel version parameters
+        run: |
+         cd kernel_workspace                  
+         rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
+         rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+         sed -i 's/ -dirty//g' kernel_platform/common/scripts/setlocalversion
+         sed -i 's/ -dirty//g' kernel_platform/msm-kernel/scripts/setlocalversion
+         sed -i 's/ -dirty//g' kernel_platform/external/dtc/scripts/setlocalversion
+         #sed -i 's/ -dirty//g' kernel_platform/build/kernel/kleaf/workspace_status_stamp.py
+                              
+      - name: Build kernel 
+        run: |
+         cd kernel_workspace/kernel_platform
+         BUILD_CONFIG=kernel/msm-5.4/build.config.msm.lemonade VARIANT=qgki LTO=full BUILD_KERNEL=1 build/build.sh
+
+      - name: Make AnyKernel3
+        run: |
+         git clone https://github.com/TanakaLun/AnyKernel3 --depth=1
+         rm -rf ./AnyKernel3/.git
+         cp ./kernel_workspace/kernel_platform/out/* ./AnyKernel3
+                   
+      - name: Upload AnyKernel3
+        uses: actions/upload-artifact@v4
+        with:
+         name: op9-pure
+         path: ./AnyKernel3/*
