@@ -133,8 +133,8 @@ jobs:
            if [ "${{ github.event.inputs.KSU_BRANCH }}" == "KSUN" ]; then
              echo "Applying SUSFS patches for KernelSU-Next..."
              cd ./KernelSU-Next
-             cp ../../kernel_patches4mksu/next/0001-kernel-patch-susfs-v1.5.5-to-KernelSU-Next-v1.0.5.patch ./
-             patch -p1 --forward < 0001-kernel-patch-susfs-v1.5.5-to-KernelSU-Next-v1.0.5.patch || true
+             cp ../../kernel_patches4mksu/next/kernel-implement-susfs-v1.5.7-gki.patch ./
+             patch -p1 --forward < kernel-implement-susfs-v1.5.7-gki.patch || true
            elif [ "${{ github.event.inputs.KSU_BRANCH }}" == "MKSU" ]; then
              echo "Applying SUSFS patches for MKSU..."
              cd ./KernelSU
