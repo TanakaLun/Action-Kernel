@@ -155,9 +155,9 @@ jobs:
           cd kernel_workspace/kernel_platform
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
           sed -i 's/-4k//g' ./common/arch/arm64/configs/gki_defconfig
-          sed -i 's/-dirty//g' ./common/scripts/setlocalversion
-          sed -i 's/-dirty//g' ./msm-kernel/scripts/setlocalversion
-          sed -i 's/-dirty//g' ./external/dtc/scripts/setlocalversion
+          sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
+          sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
           sed -i '$s|echo "\$res"|echo "-Yukino"|' ./common/scripts/setlocalversion            
           sed -i '$s|echo "\$res"|echo "-Yukino"|' ./msm-kernel/scripts/setlocalversion
           sed -i '$s|echo "\$res"|echo "-Yukino"|' ./external/dtc/scripts/setlocalversion
