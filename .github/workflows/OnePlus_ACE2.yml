@@ -43,7 +43,6 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-
       - name: Check Disk Space
         run: df -h
 
@@ -198,9 +197,11 @@ jobs:
       - name: Upload to telegram
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
+            echo "Ziping AK3..."
+            zip -r Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}.zip ./AnyKernel3/*
             echo "Uploading to the Telegram..."
             pip3 install telethon
-            python3 script/buildbot.py "./Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}.zip"
+            python3 ./script/buildbot.py "./Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}.zip"
             echo "Uploaded to the Telegram"
           fi
         env:
