@@ -162,12 +162,6 @@ jobs:
           echo "-Mortis" > ./kernel_platform/msm-kernel/localversion          # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./common/scripts/setlocalversion            
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./msm-kernel/scripts/setlocalversion
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./external/dtc/scripts/setlocalversion
-
-      - name: Upload Source
-        uses: actions/upload-artifact@v4
-        with:
-          name: source
-          path: ./kernel_workspace/*
           
       - name: Build Kernel
         run: |
