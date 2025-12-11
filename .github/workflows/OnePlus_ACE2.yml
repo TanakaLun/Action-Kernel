@@ -153,12 +153,12 @@ jobs:
 
       - name: Rename make name
         run: |
-          cd kernel_workspace/kernel_platform
-          sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
-          sed -i 's/-4k//g' ./common/arch/arm64/configs/gki_defconfig
-          sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
-          sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
-          sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
+          cd kernel_workspace
+          sed -i 's/${scm_version}//' ./kernel_platform/common/scripts/setlocalversion
+          sed -i 's/-4k//g' ./kernel_platform/common/arch/arm64/configs/gki_defconfig
+          sed -i 's/ -dirty//g' ./kernel_platform/common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' ./kernel_platform/msm-kernel/scripts/setlocalversion
+          sed -i 's/ -dirty//g' ./kernel_platform/external/dtc/scripts/setlocalversion
           sed -i 's/KERNEL_VERSION="\(.*\)"/KERNEL_VERSION="\-Mortis"/' setlocalversion
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./common/scripts/setlocalversion            
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./msm-kernel/scripts/setlocalversion
