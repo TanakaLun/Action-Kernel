@@ -163,6 +163,12 @@ jobs:
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./common/scripts/setlocalversion            
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./msm-kernel/scripts/setlocalversion
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./external/dtc/scripts/setlocalversion
+
+      - name: Upload Source
+        uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: ./kernel_workspace/*
           
       - name: Build Kernel
         run: |
@@ -192,7 +198,6 @@ jobs:
         with:
           name: Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}
           path: ./AnyKernel3/*
-
 
       - name: Upload to telegram
         run: |
