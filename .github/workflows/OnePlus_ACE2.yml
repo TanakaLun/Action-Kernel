@@ -158,8 +158,15 @@ jobs:
           sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "-Mortis\$res"|' ./common/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "${res/-g/-Mortis-g}"|' ./msm-kernel/scripts/setlocalversion
+          for f in \
+           ./common/scripts/setlocalversion \
+           ./msm-kernel/scripts/setlocalversion; do
+
+           sed -i '$s|echo "\$res"|echo "$(echo "$res" | sed '\''s/-g/-Mortis-g/'\'')"|' "$f"
+
+          done
+          # sed -i '$s|echo "\$res"|echo "-Mortis\$res"|' ./common/scripts/setlocalversion
+          # sed -i '$s|echo "\$res"|echo "${res/-g/-Mortis-g}"|' ./msm-kernel/scripts/setlocalversion
           # echo "-Mortis" > ./common/localversion
           # echo "-Mortis" > ./msm-kernel/localversion          
           # sed -i '$s|echo "\$res"|echo "-Yukino"|' ./common/scripts/setlocalversion            
