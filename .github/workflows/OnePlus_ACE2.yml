@@ -158,13 +158,10 @@ jobs:
           sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
-          for f in \
-           ./common/scripts/setlocalversion \
-           ./msm-kernel/scripts/setlocalversion; do
-
-           sed -i '$s|echo "\$res"|echo "$(echo "$res" | sed '\''s/-g/-Mortis-g/'\'')"|' "$f"
-
-          done
+          # 在 common/scripts/setlocalversion 的 OPLUS 部分后添加自定义字符串
+          sed -i '/#endif OPLUS_FEATURE_BUILD/i\\tprintf '"'%s'"' "-Mortis"' ./common/scripts/setlocalversion
+          # 在 msm-kernel/scripts/setlocalversion 的 android_release 后添加自定义字符串
+          sed -i '/printf.*android_release"/a\\tprintf '"'%s'"' "-Mortis"' ./msm-kernel/scripts/setlocalversion
           # sed -i '$s|echo "\$res"|echo "-Mortis\$res"|' ./common/scripts/setlocalversion
           # sed -i '$s|echo "\$res"|echo "${res/-g/-Mortis-g}"|' ./msm-kernel/scripts/setlocalversion
           # echo "-Mortis" > ./common/localversion
