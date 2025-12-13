@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: false
+      zal:
+        description: "启用ZARM补丁"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -123,6 +128,7 @@ jobs:
           done
           
       - name: Setup ZRAM and lz4kd
+        if: ${{ inputs.zal }}
         run: |
           cd kernel_workspace
           echo "下载ZRAM补丁..."
