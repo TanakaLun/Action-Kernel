@@ -18,26 +18,42 @@ on:
         required: true
         type: boolean
         default: false
+      lz4kd:
+        description: "是否启用lz4kd压缩算法"
+        required: false
+        type: boolean
+        default: false
+      zal:
+        description: "启用ZARM补丁"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
     name: OnePlus Ace2 Kernel Build
     runs-on: ubuntu-latest
     env:
-      CCACHE_COMPILERCHECK: "none"
-      CCACHE_COMPRESS: "1"
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
       CCACHE_HARDLINK: "true"
-      CCACHE_DIR: ${{ github.workspace }}/.ccache_oneplus_ace2
-      CCACHE_MAXSIZE: "3G"
+      CCACHE_MAXSIZE: "8G"
 
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Setup Cache Env
+        run: |
+          echo "设置机型隔离缓存目录..."
+          echo "CCACHE_DIR=$HOME/.ccache_oneplus_ace2_kernel" >> $GITHUB_ENV
+          mkdir -p "$HOME/.ccache_oneplus_ace2_kernel"
+          echo "缓存目录已设置: $HOME/.ccache_oneplus_ace2_kernel"
+
       - name: Maximize Build Space
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 8192
-          temp-reserve-mb: 2048
+          temp-reserve-mb: 4096
           remove-dotnet: 'true'
           remove-android: 'true'
           remove-haskell: 'true'
@@ -57,7 +73,37 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends libelf-dev tree dos2unix ccache python3
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev bc flex bison libelf-dev tree dos2unix ccache python3 git curl liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk cpio lz4 lzop pahole dwarves coreutils procps
+
+      - name: Restore ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-kernel
+          restore-keys: |
+            ccache-${{ runner.os }}-oneplus_ace2-kernel
+            ccache-${{ runner.os }}-kernel
+
+      - name: Initialize ccache
+        run: |
+          echo "初始化ccache..."
+          INIT_FLAG="${{ env.CCACHE_DIR }}/.ccache_initialized"
+          
+          if command -v ccache >/dev/null 2>&1; then
+            if [ ! -f "$INIT_FLAG" ]; then
+              mkdir -p "${{ env.CCACHE_DIR }}"
+              ccache -M ${{ env.CCACHE_MAXSIZE }}
+              touch "$INIT_FLAG"
+              echo "ccache初始化完成"
+            else
+              echo "ccache已存在，跳过初始化"
+            fi
+          else
+            echo "未找到ccache命令，跳过初始化"
+          fi
+          ccache -s
+          echo "ccache初始化流程完成"
 
       - name: Configure Git and repo
         run: |
@@ -81,6 +127,47 @@ jobs:
             rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || echo "No protected exports in $dir"
           done
           
+      - name: Setup ZRAM and lz4kd
+        if: ${{ inputs.zal }}
+        run: |
+          cd kernel_workspace
+          echo "下载ZRAM补丁..."
+          git clone https://github.com/Xiaomichael/kernel_patches.git
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          
+          cd kernel_platform
+          echo "复制补丁文件..."
+          cp ../kernel_patches/zram/001-lz4.patch ./common/
+          cp ../kernel_patches/zram/lz4armv8.S ./common/lib
+          cp ../kernel_patches/zram/002-zstd.patch ./common/
+          
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            echo "复制lz4k文件..."
+            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
+            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
+            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
+            cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+          fi
+          
+          echo "应用补丁..."
+          cd ./common
+          
+          if [ "${{ inputs.lz4kd }}" == "false" ]; then
+            echo "应用lz4+zstd补丁..."
+            git apply -p1 < 001-lz4.patch || true
+            patch -p1 < 002-zstd.patch || true
+          fi
+          
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            echo "应用lz4kd补丁..."
+            cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4kd.patch ./
+            patch -p1 -F 3 < lz4kd.patch || true
+            cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4k_oplus.patch ./
+            patch -p1 -F 3 < lz4k_oplus.patch || true
+          fi
+          
+          echo "所有补丁应用完成"
+
       - name: Setup KSU
         if: ${{ inputs.ksu }}
         run: |
@@ -135,6 +222,21 @@ jobs:
           echo "CONFIG_BBG=y" >> ./arch/arm64/configs/gki_defconfig
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' security/Kconfig
 
+      - name: Configure Kernel Options
+        run: |
+          echo "Configure kernel compilation options..."
+          
+          cd kernel_workspace/kernel_platform/common
+          
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            echo "Enable the lz4kd compression algorithm..."
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          echo "Kernel configuration update completed."
+
       - name: Other tasks
         run: |
           cd kernel_workspace/kernel_platform/common
@@ -161,14 +263,18 @@ jobs:
           sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
             s/local oki_infix=o/local oki_infix=Mortis/
           }' ./common/scripts/setlocalversion
-          # sed -i '/#endif OPLUS_FEATURE_BUILD/i\\tprintf '"'%s'"' "-Mortis"' ./common/scripts/setlocalversion
-          # sed -i '/printf.*android_release"/a\\tprintf '"'%s'"' "-Mortis"' ./msm-kernel/scripts/setlocalversion
-                    
+
       - name: Build Kernel
         run: |
-          cd kernel_workspace
-          LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0 \
-          ./kernel_platform/oplus/build/oplus_build_kernel.sh waipio gki
+          export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin:$PATH"
+            export PATH="/usr/lib/ccache:$PATH"
+          sudo apt install libelf-dev
+          cd kernel_workspace/kernel_platform/common
+          make -j$(nproc --all) LLVM_IAS=1 LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out gki_defconfig all
+          
+          # 显示ccache统计信息
+          ccache -s
+          echo "内核编译完成"
 
       - name: Make AnyKernel3
         run: |
@@ -190,20 +296,5 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}
+          name: Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}
           path: ./AnyKernel3/*
-
-      # - name: Upload to telegram
-        # run: |
-          # if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            # echo "Ziping AK3..."
-            # zip -r Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}.zip ./AnyKernel3/*
-            # echo "Uploading to the Telegram..."
-            # pip3 install telethon
-            # python3 ./script/buildbot.py "./Ace2_AnyKernel3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}.zip"
-            # echo "Uploaded to the Telegram"
-          # fi
-        # env:
-          # CHATID: ${{secrets.CHATID}}
-          # BOT_TOKEN: ${{secrets.BOT_TOKEN}}
-          # MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
