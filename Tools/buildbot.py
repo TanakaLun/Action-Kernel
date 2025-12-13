@@ -10,15 +10,11 @@ API_HASH = "d524b414d21f4d37f08684c1df41ac9c"
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
-KSU_VAR = os.environ.get("KSU_VAR")
 
 MSG_TEMPLATE = """
 **New Build Published!**
-#oki
-#{device}
 ```Kernel Info
 ipset supported
-KSU_VAR: {KSU_VAR}
 ```
 """.strip()
 
@@ -26,7 +22,6 @@ KSU_VAR: {KSU_VAR}
 def get_caption():
     msg = MSG_TEMPLATE.format(
         kernelversion=kernelversion,
-        KSU_VAR=KSU_VAR,
     )
     if len(msg) > 1024:
         return f"{kernelversion}"
@@ -77,17 +72,6 @@ def get_kernel_versions():
     except FileNotFoundError:
         raise
     return f"{version}.{patchlevel}.{sublevel}"
-
-def get_versions():
-    global kernelversion,ksuver,KSU_VAR
-        ksu_folder="KernelSU"
-    current_work=os.getcwd()
-    os.chdir(current_work+"/kernel_workspace/kernel_platform/common")
-    kernelversion=get_kernel_versions()
-    os.chdir(os.getcwd()+f"/../{ksu_folder}")
-    ksuver=os.popen("echo $(git describe --tags $(git rev-list --tags --max-count=1))-$(git rev-parse --short HEAD)@$(git branch --show-current)").read().strip()
-    ksuver+=f' ({os.environ.get("KSUVER")})'
-    os.chdir(current_work)
 
 async def main():
     print("[+] Uploading to telegram")
