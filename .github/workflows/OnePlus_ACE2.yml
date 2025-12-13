@@ -67,8 +67,10 @@ jobs:
           free -h
 
       - name: Install dependencies
-        run: |
-          sudo apt-get install -y --no-install-recommends libelf-dev tree dos2unix ccache python3 git curl build-essential flex bison libssl-dev libncurses-dev liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk
+        uses: awalsh128/cache-apt-pkgs-action@latest 
+        with: 
+          packages: python3 git curl ccache libelf-dev build-essential flex bison libssl-dev libncurses-dev liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk dos2unix
+          execute_install_scripts: true
 
       - name: Restore ccache
         uses: actions/cache@v3
