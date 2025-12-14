@@ -29,13 +29,6 @@ jobs:
   build:
     name: OnePlus 11 Kernel Build
     runs-on: ubuntu-latest
-    env:
-      CCACHE_COMPILERCHECK: "none"
-      CCACHE_COMPRESS: "1"
-      CCACHE_NOHASHDIR: "true"
-      CCACHE_HARDLINK: "true"
-      CCACHE_DIR: ${{ github.workspace }}/.ccache_oneplus_ace2
-      CCACHE_MAXSIZE: "3G"
 
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +56,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends libelf-dev tree dos2unix ccache python3
+          sudo apt-get install -y --no-install-recommends libelf-dev tree dos2unix python3
 
       - name: Configure Git and repo
         run: |
@@ -102,9 +95,9 @@ jobs:
           cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
 
           echo "Apply lz4kd patches..."
-          cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4kd.patch ./
+          cp ../../SukiSU_patch/other/zram/zram_patch/5.15/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
-          cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4k_oplus.patch ./
+          cp ../../SukiSU_patch/other/zram/zram_patch/5.15/lz4k_oplus.patch ./
           patch -p1 -F 3 < lz4k_oplus.patch || true
           
           echo "Done"
@@ -186,12 +179,7 @@ jobs:
           sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
-          # sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
-           # s/local oki_infix=o/local oki_infix=Mortis/
-          # }' ./common/scripts/setlocalversion
-          # sed -i '/#endif OPLUS_FEATURE_BUILD/i\\tprintf '"'%s'"' "-Mortis"' ./common/scripts/setlocalversion
-          # sed -i '/printf.*android_release"/a\\tprintf '"'%s'"' "-Mortis"' ./msm-kernel/scripts/setlocalversion
-                    
+
       - name: Build Kernel
         run: |
           cd kernel_workspace
