@@ -93,7 +93,7 @@ jobs:
           cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
           cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
           cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
-
+          cd ./common
           echo "Apply lz4kd patches..."
           cp ../../SukiSU_patch/other/zram/zram_patch/5.15/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
