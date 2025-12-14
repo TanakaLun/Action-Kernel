@@ -6,27 +6,9 @@ from telethon import TelegramClient
 API_ID = 611335
 API_HASH = "d524b414d21f4d37f08684c1df41ac9c"
 
-
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
-
-MSG_TEMPLATE = """
-**New Build Published!**
-```Kernel Info
-ipset supported
-```
-""".strip()
-
-
-def get_caption():
-    msg = MSG_TEMPLATE.format(
-        kernelversion=kernelversion,
-    )
-    if len(msg) > 1024:
-        return f"{kernelversion}"
-    return msg
-
 
 def check_environ():
     global CHAT_ID, MESSAGE_THREAD_ID
@@ -45,33 +27,10 @@ def check_environ():
         try:
             MESSAGE_THREAD_ID = int(MESSAGE_THREAD_ID)
         except:
-            print("[-] Invaild MESSAGE_THREAD_ID")
+            print("[-] Invalid MESSAGE_THREAD_ID")
             exit(1)
     else:
         MESSAGE_THREAD_ID = None
-    get_kernel_versions()
-
-def get_kernel_versions():
-    version=""
-    patchlevel=""
-    sublevel=""
-
-    try:
-        with open("Makefile",'r') as file:
-            for line in file:
-                if line.startswith("VERSION"):
-                    version = line.split('=')[1].strip()
-                elif line.startswith("PATCHLEVEL"):
-                    patchlevel = line.split('=')[1].strip()
-                elif line.startswith("SUBLEVEL"):
-                    sublevel = line.split('=')[1].strip()
-                elif line.startswith("#"): # skip comments
-                    continue
-                else:
-                    break
-    except FileNotFoundError:
-        raise
-    return f"{version}.{patchlevel}.{sublevel}"
 
 async def main():
     print("[+] Uploading to telegram")
@@ -85,14 +44,8 @@ async def main():
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     session_dir = os.path.join(script_dir, "ksubot")
     async with await TelegramClient(session=session_dir, api_id=API_ID, api_hash=API_HASH).start(bot_token=BOT_TOKEN) as bot:
-        caption = [""] * len(files)
-        caption[-1] = get_caption()
-        print("[+] Caption: ")
-        print("---")
-        print(caption)
-        print("---")
-        print("[+] Sending")
-        await bot.send_file(entity=CHAT_ID, file=files, caption=caption, reply_to=MESSAGE_THREAD_ID, parse_mode="markdown")
+        print("[+] Sending files……")
+        await bot.send_file(entity=CHAT_ID, file=files, reply_to=MESSAGE_THREAD_ID)
         print("[+] Done!")
 
 if __name__ == "__main__":
