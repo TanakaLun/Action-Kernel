@@ -49,7 +49,7 @@ def check_environ():
             exit(1)
     else:
         MESSAGE_THREAD_ID = None
-    get_versions()
+    get_kernel_versions()
 
 def get_kernel_versions():
     version=""
