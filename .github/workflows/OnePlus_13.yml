@@ -49,6 +49,16 @@ jobs:
           mkdir -p "$HOME/.ccache_oneplus_13_kernel"
           echo "缓存目录已设置: $HOME/.ccache_oneplus_13_kernel"
 
+      - name: Maximize Build Space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 4096
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+
       - name: Check Disk Space
         run: df -h
 
