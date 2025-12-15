@@ -9,22 +9,22 @@ on:
         type: boolean
         default: false
       better_net:
-        description: "是否开启网络功能增强配置"
+        description: "启用网络功能增强配置"
         required: false
         type: boolean
         default: true
       baseband_guard:
-        description: "是否开启内核级基带保护"
+        description: "启用内核级基带保护"
         required: true
         type: boolean
         default: false
       lz4kd:
-        description: "是否启用lz4kd压缩算法"
+        description: "启用lz4kd压缩算法"
         required: false
         type: boolean
         default: false
       hymofs:
-        description: "是否启用对HymoFS的支持"
+        description: "启用HymoFS支持"
         required: false
         type: boolean
         default: false
@@ -153,7 +153,7 @@ jobs:
         if: ${{ inputs.ksu }}
         run: |
           cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
           
           cd KernelSU
           COMMIT_HASH=$(git rev-parse --short HEAD)
@@ -203,6 +203,12 @@ jobs:
           echo "CONFIG_BBG=y" >> ./arch/arm64/configs/gki_defconfig
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' security/Kconfig
 
+      - name: Setup HymoFS
+        if: ${{ inputs.hymofs }}
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          echo "CONFIG_HYMOFS=y" >> ./arch/arm64/configs/gki_defconfig
+
       - name: Configure Kernel Options
         run: |
           echo "Configure kernel compilation options..."
@@ -232,10 +238,6 @@ jobs:
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./arch/arm64/configs/gki_defconfig
           # 禁用 defconfig 检查
           sed -i 's/check_defconfig//' ./build.config.gki
-          if [[ "${{ inputs.hymofs }}" == "true" ]]; then
-            echo "Enable HYMOFS"
-            echo "CONFIG_HYMOFS=y" >> "./arch/arm64/configs/gki_defconfig"
-          fi
 
       - name: Rename make name
         run: |
