@@ -33,18 +33,21 @@ jobs:
   build:
     name: OnePlus 13 Kernel Build
     runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_MAXSIZE: "8G"
 
     steps:
       - uses: actions/checkout@v4
-      - name: Maximize Build Space
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 8192
-          temp-reserve-mb: 2048
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
+      
+      - name: Setup Cache Env
+        run: |
+          echo "设置机型隔离缓存目录..."
+          echo "CCACHE_DIR=$HOME/.ccache_oneplus_13_kernel" >> $GITHUB_ENV
+          mkdir -p "$HOME/.ccache_oneplus_13_kernel"
+          echo "缓存目录已设置: $HOME/.ccache_oneplus_13_kernel"
 
       - name: Check Disk Space
         run: df -h
@@ -60,7 +63,37 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends libelf-dev tree dos2unix python3 python-is-python3
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev bc flex bison libelf-dev tree dos2unix ccache python3 git curl liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk cpio lz4 lzop pahole dwarves coreutils procps
+
+      - name: Restore ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_13-kernel
+          restore-keys: |
+            ccache-${{ runner.os }}-oneplus_ace2-kernel
+            ccache-${{ runner.os }}-kernel
+
+      - name: Initialize ccache
+        run: |
+          echo "初始化ccache..."
+          INIT_FLAG="${{ env.CCACHE_DIR }}/.ccache_initialized"
+          
+          if command -v ccache >/dev/null 2>&1; then
+            if [ ! -f "$INIT_FLAG" ]; then
+              mkdir -p "${{ env.CCACHE_DIR }}"
+              ccache -M ${{ env.CCACHE_MAXSIZE }}
+              touch "$INIT_FLAG"
+              echo "ccache初始化完成"
+            else
+              echo "ccache已存在，跳过初始化"
+            fi
+          else
+            echo "未找到ccache命令，跳过初始化"
+          fi
+          ccache -s
+          echo "ccache初始化流程完成"
 
       - name: Configure Git and repo
         run: |
@@ -201,9 +234,14 @@ jobs:
 
       - name: Build Kernel
         run: |
-          cd kernel_workspace
-          ./kernel_platform/oplus/bazel/oplus_modules_variant.sh sun perf ""
-          ./kernel_platform/build_with_bazel.py -t sun perf
+          # cd kernel_workspace
+          # ./kernel_platform/oplus/bazel/oplus_modules_variant.sh sun perf ""
+          # ./kernel_platform/build_with_bazel.py -t sun perf
+          export PATH="/usr/lib/ccache:$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH" 
+          export PATH="/usr/lib/ccache:$PATH"
+          sudo apt install libelf-dev
+          cd kernel_workspace/kernel_platform/common
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS+=-O2  gki_defconfig all 
 
       - name: Make AnyKernel3
         run: |
