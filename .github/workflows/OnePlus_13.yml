@@ -209,8 +209,13 @@ jobs:
         run: |
           cd kernel_workspace
           # LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
-          ./kernel_platform/build_with_bazel.py -t sun perf
-
+          # ./kernel_platform/build_with_bazel.py -t sun perf
+          if [ -f ./kernel_platform/build_with_bazel.py ]; then
+            ./kernel_platform/oplus/bazel/oplus_modules_variant.sh sun perf ""
+            ./kernel_platform/build_with_bazel.py -t sun perf
+          else
+            LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
+          fi
       - name: Make AnyKernel3
         run: |
           git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1
