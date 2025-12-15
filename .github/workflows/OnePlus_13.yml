@@ -166,6 +166,15 @@ jobs:
           cd kernel_workspace/kernel_platform/common
           echo "CONFIG_HYMOFS=y" >> ./arch/arm64/configs/gki_defconfig
 
+      - name: Apply SCHED Patch
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          wget https://raw.githubusercontent.com/Numbersf/SCHED_PATCH/refs/heads/sm8750/fengchi_oneplus_13_b.patch
+          echo "Apply fengchi patch"
+          dos2unix fengchi_oneplus_13_b.patch
+          patch -p1 -F 3 < fengchi_oneplus_13_b.patch
+          echo "Done"
+          
       - name: Other tasks
         run: |
           cd kernel_workspace/kernel_platform/common
