@@ -304,3 +304,4 @@ jobs:
           CHATID: ${{secrets.CHATID}}
           BOT_TOKEN: ${{secrets.BOT_TOKEN}}
           MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
+          DEVICE: "OnePlus Ace 2"

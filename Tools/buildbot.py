@@ -10,9 +10,10 @@ API_HASH = "d524b414d21f4d37f08684c1df41ac9c"
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
+DEVICE = os.environ.get("DEVICE") 
 
 def check_environ():
-    global CHAT_ID, MESSAGE_THREAD_ID
+    global CHAT_ID, MESSAGE_THREAD_ID, DEVICE
     if BOT_TOKEN is None:
         print("[-] Invalid BOT_TOKEN")
         exit(1)
@@ -32,24 +33,25 @@ def check_environ():
             exit(1)
     else:
         MESSAGE_THREAD_ID = None
+    
+    # 如果环境变量中没有设备名称，尝试从文件名中提取
+    if not DEVICE:
+        DEVICE = "Unknown Device"
 
 def extract_device_from_filename(filename):
-    """从文件名中提取设备名称"""
-    # 常见设备名称模式
+    """从文件名中提取设备名称作为备选方案"""
     device_patterns = [
-        r'(Ace2|OP11|OP15|OP13T)',
-        r'^([A-Za-z0-9]+)_',  # 匹配下划线前的部分
+        r'(Ace2|OP11|OP13|OP13T)',
+        r'^([A-Za-z0-9]+)_',
     ]
     
     for pattern in device_patterns:
         match = re.search(pattern, filename)
         if match:
             device = match.group(1)
-            # 清理可能的数字后缀
             device = re.sub(r'(\d+)$', r' \1', device)  # 在数字前加空格
             return device
     
-    # 如果没有匹配到，返回默认值
     return "Unknown Device"
 
 def extract_features_from_filename(filename):
@@ -63,23 +65,27 @@ def extract_features_from_filename(filename):
         '_HymoFS': "HymoFS",
     }
     
-    # 根据文件名中的关键词判断特性
     for keyword, feature_name in feature_mapping.items():
         if keyword in filename:
             features.append(feature_name)
     
     return features
 
-def generate_caption(filename, device, features):
-    """根据设备名称和特性生成消息"""
+def generate_caption(filename, device, features, use_env_device=True):
+    """生成消息"""
+    # 如果使用环境变量中的设备名称，且不是默认值，则使用它
+    if use_env_device and DEVICE != "Unknown Device":
+        device_name = DEVICE
+    else:
+        device_name = device
+    
     # 构建特性列表字符串
     if features:
         features_text = "\n".join([f"✓ {feature}" for feature in features])
     else:
         features_text = "No additional features"
-    
-    # 设备标签格式（小写，无空格）
-    device_tag = device.lower().replace(" ", "")
+
+    device_tag = device_name.lower().replace(" ", "")
     
     # 生成消息
     caption = f"""
@@ -87,7 +93,7 @@ def generate_caption(filename, device, features):
 #oki
 #{device_tag}
 
-**Device:** {device}
+**Device:** {device_name}
 **File:** `{filename}`
 
 **Enabled Features:**
@@ -100,7 +106,7 @@ def generate_caption(filename, device, features):
 **New Build Published!**
 #{device_tag}
 
-**Device:** {device}
+**Device:** {device_name}
 **File:** `{filename}`
 **Features:** {', '.join(features) if features else 'Standard'}
 """.strip()
@@ -126,12 +132,17 @@ async def main():
         captions = []
         for file in files:
             filename = os.path.basename(file)
-            device = extract_device_from_filename(filename)
+            
+            # 从文件名中提取设备和特性（作为备选）
+            file_device = extract_device_from_filename(filename)
             features = extract_features_from_filename(filename)
-            caption = generate_caption(filename, device, features)
+            
+            # 优先使用环境变量中的设备名称
+            use_env_device = True
+            caption = generate_caption(filename, file_device, features, use_env_device)
             captions.append(caption)
         
-        # 只给最后一个文件附加完整消息，其他文件空消息
+        # 只给最后一个文件附加完整消息
         final_captions = [""] * len(files)
         final_captions[-1] = captions[-1]
         
@@ -139,7 +150,8 @@ async def main():
         print("---")
         print(final_captions[-1])
         print("---")
-        print(f"[+] Device detected: {extract_device_from_filename(os.path.basename(files[-1]))}")
+        print(f"[+] Device from env: {DEVICE}")
+        print(f"[+] Device from filename: {extract_device_from_filename(os.path.basename(files[-1]))}")
         print(f"[+] Features detected: {extract_features_from_filename(os.path.basename(files[-1]))}")
         
         print("[+] Sending")
