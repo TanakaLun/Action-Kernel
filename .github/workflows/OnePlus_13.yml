@@ -60,7 +60,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends libelf-dev tree dos2unix python3
+          sudo apt-get install -y --no-install-recommends libelf-dev tree dos2unix python3 python-is-python3
 
       - name: Configure Git and repo
         run: |
@@ -190,11 +190,18 @@ jobs:
           sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
 
+      - name: Upload build_with_bazel.py
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_with_bazel.py
+          path: ./kernel_workspace/kernel_platform/build_with_bazel.py
+
       - name: Build Kernel
         run: |
           cd kernel_workspace
-          LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0 \
-          ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
+          # LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0 \
+          # ./kernel_platform/oplus/build/oplus_build_kernel.sh sun perf
+          ./kernel_platform/build_with_bazel.py -t sun gki
 
       - name: Make AnyKernel3
         run: |
