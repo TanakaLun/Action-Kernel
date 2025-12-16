@@ -246,6 +246,7 @@ jobs:
           sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
+          sed -i "s/echo \"\$res\"/echo \"android12-9\$res\"/g" ./common/scripts/setlocalversion ./common/scripts/setlocalversion
           sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
             s/local oki_infix=o/local oki_infix=Mortis/
           }' ./common/scripts/setlocalversion
