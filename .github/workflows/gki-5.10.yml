@@ -440,7 +440,6 @@ jobs:
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
 
       - name: Upload to Telegram
-        if: ${{ secrets.BOT_TOKEN != '' }}
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHATID: ${{ secrets.CHATID }}
