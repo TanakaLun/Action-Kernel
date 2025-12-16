@@ -1,0 +1,468 @@
+name: A12-5.10 Kernel Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      better_net:
+        description: "启用网络功能增强配置"
+        required: false
+        type: boolean
+        default: true
+      baseband_guard:
+        description: "启用内核级基带保护"
+        required: true
+        type: boolean
+        default: false
+      lz4kd:
+        description: "启用lz4kd压缩算法"
+        required: false
+        type: boolean
+        default: false
+      use_O2:
+        description: "启用O2编译优化"
+        required: false
+        type: boolean
+        default: false
+      kernel_branch:
+        description: "内核分支版本"
+        required: true
+        type: choice
+        default: "226"
+        options:
+          - "226"
+          - "233"
+          - "236"
+          - "X"
+
+jobs:
+  build-kernel:
+    name: Android 12 5.10 Kernel Build
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_MAXSIZE: "8G"
+      ANDROID_VERSION: "android12"
+      KERNEL_VERSION: "5.10"
+      OS_PATCH_LEVEL: "2024-11"
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Cache Environment
+        run: |
+          echo "设置缓存目录..."
+          echo "CCACHE_DIR=$HOME/.ccache_android12_5.10_kernel" >> $GITHUB_ENV
+          mkdir -p "$HOME/.ccache_android12_5.10_kernel"
+
+      - name: Maximize Build Space
+        uses: AdityaGarg8/remove-unwanted-software@v5
+        with:
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+          remove-large-packages: 'true'
+          remove-swapfile: 'true'
+          remove-cached-tools: 'false'
+          verbose: 'true'
+
+      - name: Check Disk Space
+        run: df -h
+
+      - name: Create and Enable 3G Swap
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 3G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libncurses-dev libssl-dev bc \
+            flex bison libelf-dev tree dos2unix ccache \
+            python3 git curl liblz4-tool zlib1g-dev \
+            libxml2-utils rsync unzip gawk cpio lz4 lzop \
+            pahole dwarves coreutils procps \
+            device-tree-compiler
+
+      - name: Clone AnyKernel3
+        run: |
+          git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1
+          rm -rf ./AnyKernel3/.git
+
+      - name: Restore ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-android12-5.10-kernel
+          restore-keys: |
+            ccache-${{ runner.os }}-android12-5.10-kernel
+            ccache-${{ runner.os }}-kernel
+
+      - name: Initialize ccache
+        run: |
+          echo "初始化ccache..."
+          INIT_FLAG="${{ env.CCACHE_DIR }}/.ccache_initialized"
+          
+          if command -v ccache >/dev/null 2>&1; then
+            if [ ! -f "$INIT_FLAG" ]; then
+              mkdir -p "${{ env.CCACHE_DIR }}"
+              ccache -M ${{ env.CCACHE_MAXSIZE }}
+              touch "$INIT_FLAG"
+              echo "ccache初始化完成"
+            else
+              echo "ccache已存在，跳过初始化"
+            fi
+          else
+            echo "未找到ccache命令，跳过初始化"
+          fi
+          ccache -s
+
+      - name: Configure Git and repo
+        run: |
+          git config --global user.email "bot@kernel.org"
+          git config --global user.name "KernelBot"
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+          chmod a+x ~/repo
+          sudo mv ~/repo /usr/local/bin/repo
+
+      - name: Determine OS patch level
+        run: |
+          case "${{ inputs.kernel_branch }}" in
+            "226")
+              echo "OS_PATCH_LEVEL=2024-11" >> $GITHUB_ENV
+              ;;
+            "233")
+              echo "OS_PATCH_LEVEL=2025-02" >> $GITHUB_ENV
+              ;;
+            "236")
+              echo "OS_PATCH_LEVEL=2025-05" >> $GITHUB_ENV
+              ;;
+            "X")
+              echo "OS_PATCH_LEVEL=lts" >> $GITHUB_ENV
+              ;;
+          esac
+          echo "SUB_LEVEL=${{ inputs.kernel_branch }}" >> $GITHUB_ENV
+          echo "Using OS_PATCH_LEVEL: $OS_PATCH_LEVEL"
+          echo "Using SUB_LEVEL: ${{ inputs.kernel_branch }}"
+
+      - name: Create workspace and initialize kernel source
+        run: |
+          echo "Creating workspace..."
+          mkdir -p kernel_workspace
+          cd kernel_workspace
+          
+          # Create CONFIG variable
+          CONFIG="${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}-${{ env.SUB_LEVEL }}"
+          echo "CONFIG=$CONFIG" >> $GITHUB_ENV
+          echo "CONFIG set to: $CONFIG"
+          
+          mkdir -p "$CONFIG"
+          cd "$CONFIG"
+          
+          # Initialize and sync kernel source
+          echo "Initializing and syncing kernel source..."
+          FORMATTED_BRANCH="${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}-${{ env.OS_PATCH_LEVEL }}"
+          repo init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
+          
+          REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH})
+          
+          DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
+          if grep -q deprecated <<< $REMOTE_BRANCH; then
+            echo "Found deprecated branch: $FORMATTED_BRANCH"
+            sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" $DEFAULT_MANIFEST_PATH
+          fi
+          
+          repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
+          echo "Kernel source synced successfully"
+
+      - name: Clone LZ4K patches if needed
+        if: ${{ inputs.lz4kd }}
+        run: |
+          echo "Downloading LZ4K patches..."
+          cd kernel_workspace
+          git clone https://github.com/SukiSU-Ultra/SukiSU_patch.git --depth=1
+
+      - name: Add Baseband-guard support
+        if: ${{ inputs.baseband_guard }}
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}
+          echo "Adding Baseband-guard..."
+          
+          wget -O- https://github.com/vc-teachouse/Baseband-guard/raw/main/setup.sh | bash
+
+          echo "CONFIG_BBG=y" >> common/arch/arm64/configs/gki_defconfig
+          sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/"$/,baseband_guard"/ } }' common/security/Kconfig
+
+          echo "Baseband-guard configured"
+
+      - name: Apply LZ4KD patches
+        if: ${{ inputs.lz4kd }}
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}/common
+          
+          echo "Copying LZ4K source files..."
+          cp -r ../../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
+          cp -r ../../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
+          cp -r ../../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
+          cp -r ../../../SukiSU_patch/other/zram/lz4k_oplus ./lib/
+
+          cp ../../../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
+          echo "Applying lz4kd patch..."
+          patch -p1 -F 3 < lz4kd.patch || true
+
+          cp ../../../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4k_oplus.patch ./
+          echo "Applying lz4k_oplus patch..."
+          patch -p1 -F 3 < lz4k_oplus.patch || true
+
+      - name: Configure kernel options
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}
+          
+          # Basic kernel configuration
+          echo "Configuring kernel options..."
+          
+          # Enable ZRAM and compression algorithms if lz4kd is enabled
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            echo "CONFIG_ZSMALLOC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_DEF_COMP_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+          
+          # Remove check_defconfig to speed up build
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+          
+          echo "Kernel configuration updated"
+
+      - name: Configure kernel name
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}
+          
+          # Build time
+          BUILD_TIME=$(TZ='Asia/Shanghai' date +"%Y%m%d%H%M")
+          CURRENT_TIME=$(TZ='Asia/Shanghai' date +"%a %b %d %H:%M:%S UTC+8 %Y")
+          
+          # Set kernel localversion
+          sed -i '$s|echo "\$res"|echo "\$res-custom-$BUILD_TIME"|' ./common/scripts/setlocalversion
+
+          # Set build timestamp
+          perl -pi -e "s{UTS_VERSION=\"\\\$\(echo \\\$UTS_VERSION \\\$CONFIG_FLAGS \\\$TIMESTAMP \\| cut -b -\\\$UTS_LEN\)\"}{UTS_VERSION=\"#1 SMP PREEMPT $CURRENT_TIME\"}" ./common/scripts/mkcompile_h
+
+          # Clean up for bazel build
+          sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' ./common/BUILD.bazel
+          rm -rf ./common/android/abi_gki_protected_exports_*
+          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
+
+      - name: Add networking optimizations
+        if: ${{ inputs.better_net }}
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}
+          echo "Enabling network optimizations..."
+          
+          # BPF stream parser for proxy performance
+          echo "CONFIG_BPF_STREAM_PARSER=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          # ipset support
+          echo "CONFIG_IP_SET=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_MAX=65534" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_BITMAP_IP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_BITMAP_IPMAC=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_BITMAP_PORT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_IP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_IPPORT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_IPPORTIP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_IPPORTNET=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_NET=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_NETPORT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_LIST_SET=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_NAT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_TARGET_MASQUERADE=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          # TPROXY support
+          echo "CONFIG_NETFILTER=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_TARGET_TPROXY=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_MATCH_SOCKET=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_MATCH_MARK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_TARGET_MARK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_TARGET_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_SET=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: Add BBR congestion control
+        if: ${{ inputs.better_net }}
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}
+          echo "Enabling BBR congestion control..."
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_SCH_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: Enable O2 compilation optimization
+        if: ${{ inputs.use_O2 }}
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}
+          echo "Enabling O2 compilation optimization..."
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          echo "Enabling Thin LTO optimization..."
+          echo "CONFIG_LTO=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_LTO_CLANG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_LTO_CLANG_THIN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_OPTIMIZE_INLINING=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: Configure build system
+        run: |
+          cd kernel_workspace/${{ env.CONFIG }}
+          
+          # For Android 12 GKI kernel build
+          echo "Configuring build system..."
+          
+          # Disable system DLKM to speed up build
+          if [ -f "common/build.config.gki.aarch64" ]; then
+            sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' common/build.config.gki.aarch64
+            sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' common/build.config.gki.aarch64
+            sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' common/build.config.gki.aarch64
+          fi
+
+      - name: Build Kernel
+        run: |
+          set -e
+          set -x
+          
+          cd kernel_workspace/${{ env.CONFIG }}
+          
+          echo "Building the kernel..."
+          
+          # Build with build.sh for Android GKI kernels
+          if [ -f "build/build.sh" ]; then
+            LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh CC="/usr/bin/ccache clang" || exit 1
+          else
+            # Alternative build method
+            echo "Using alternative build method..."
+            # This is a fallback, adjust as needed
+            cd common
+            make -j$(nproc --all) ARCH=arm64 CC="ccache clang" O=out gki_defconfig
+            make -j$(nproc --all) ARCH=arm64 CC="ccache clang" O=out
+          fi
+          
+          ccache --show-stats
+          echo "Kernel build completed successfully"
+
+      - name: Find and copy Kernel Image
+        run: |
+          echo "Looking for kernel Image file..."
+        
+          # 搜索所有可能的Image文件位置
+          IMAGE_FOUND=false
+        
+          # 可能的Image文件路径
+          POSSIBLE_PATHS=(
+            "kernel_workspace/${{ env.CONFIG }}/common/out/arch/arm64/boot/Image"
+            "kernel_workspace/${{ env.CONFIG }}/out/${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}/dist/Image"
+            "kernel_workspace/${{ env.CONFIG }}/bazel-bin/common/kernel_aarch64/Image"
+            "kernel_workspace/${{ env.CONFIG }}/common/out/Image"
+            "kernel_workspace/${{ env.CONFIG }}/out/Image"
+          )
+        
+          for IMAGE_PATH in "${POSSIBLE_PATHS[@]}"; do
+            if [ -f "$IMAGE_PATH" ]; then
+              echo "Found Image at: $IMAGE_PATH"
+              cp "$IMAGE_PATH" ./AnyKernel3/Image
+              cp "$IMAGE_PATH" ./kernel_workspace/Image
+              IMAGE_FOUND=true
+              echo "IMAGE_PATH=$IMAGE_PATH" >> $GITHUB_ENV
+              break
+            fi
+          done
+        
+          if [ "$IMAGE_FOUND" = false ]; then
+            echo "Error: Image file not found in standard locations, searching..."
+            find "kernel_workspace" -name "Image" -type f | head -20
+            exit 1
+          fi
+        
+          echo "Kernel Image copied successfully"
+
+      - name: Extract Linux Version from Image
+        run: |
+          IMAGE_PATH="./AnyKernel3/Image"
+          if [ -f "$IMAGE_PATH" ]; then
+            KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | head -n 1 | awk '{print $3}')
+            echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+            echo "Extracted kernel version: $KERNEL_VERSION"
+
+            BUILD_INFO=$(strings "$IMAGE_PATH" | grep "Linux version" | head -n 1)
+            echo "BUILD_INFO=$BUILD_INFO" >> $GITHUB_ENV
+          else
+            echo "Image file not found at $IMAGE_PATH"
+            exit 1
+          fi
+
+      - name: Create AnyKernel3 ZIP
+        run: |
+          cd ./AnyKernel3
+          ZIP_BASE="Android12-5.10-${{ env.SUB_LEVEL }}"
+          FEATURES=""
+          if [ "${{ inputs.better_net }}" == "true" ]; then FEATURES="${FEATURES}_NET"; fi
+          if [ "${{ inputs.baseband_guard }}" == "true" ]; then FEATURES="${FEATURES}_BBG"; fi
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then FEATURES="${FEATURES}_LZ4KD"; fi
+          if [ "${{ inputs.use_O2 }}" == "true" ]; then FEATURES="${FEATURES}_O2"; fi
+          [ -z "$FEATURES" ] && FEATURES="_STOCK"
+          ZIP_NAME="${ZIP_BASE}${FEATURES}.zip"
+          zip -r "../$ZIP_NAME" ./*
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Create AnyKernel3 ZIP
+        run: |
+          cd ./AnyKernel3
+          ZIP_BASE="Android12-5.10-${{ env.SUB_LEVEL }}"
+          FEATURES=""
+          if [ "${{ inputs.better_net }}" == "true" ]; then FEATURES="${FEATURES}_NET"; fi
+          if [ "${{ inputs.baseband_guard }}" == "true" ]; then FEATURES="${FEATURES}_BBG"; fi
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then FEATURES="${FEATURES}_LZ4KD"; fi
+          if [ "${{ inputs.use_O2 }}" == "true" ]; then FEATURES="${FEATURES}_O2"; fi
+          [ -z "$FEATURES" ] && FEATURES="_STOCK"
+          ZIP_NAME="${ZIP_BASE}${FEATURES}.zip"
+          zip -r "../$ZIP_NAME" ./*
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Upload to Telegram
+        if: ${{ secrets.BOT_TOKEN != '' }}
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHATID: ${{ secrets.CHATID }}
+          MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
+          TYPE: "GKI Kernel"
+          BETTER_NET: ${{ inputs.better_net }}
+          BASEBAND_GUARD: ${{ inputs.baseband_guard }}
+          LZ4KD: ${{ inputs.lz4kd }}
+          USE_O2: ${{ inputs.use_O2 }}
+          ZIP_NAME: ${{ env.ZIP_NAME }}
+        run: |
+          if [ -f "${{ env.ZIP_NAME }}" ]; then
+            pip3 install telethon
+            python3 upload_telegram.py "${{ env.ZIP_NAME }}"
+          else
+            echo "ZIP file not found"
+            exit 1
+          fi
+
+      - name: Upload AnyKernel3
+        uses: actions/upload-artifact@v4
+        with:
+          name: A12-5.10
+          path: |
+            *.zip
