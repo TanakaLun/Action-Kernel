@@ -54,9 +54,9 @@ jobs:
         run: |
           echo "Configure isolated cache directories for different device models..."
           if [[ "${{ inputs.sysver }}" == "c16" ]]; then
-            CCACHE_SUFFIX="13_b"
+            CCACHE_SUFFIX="13_c16"
           else
-            CCACHE_SUFFIX="13_v"
+            CCACHE_SUFFIX="13_c15"
           fi
           
           CCACHE_DIR="$HOME/.ccache_oneplus_${CCACHE_SUFFIX}"
@@ -96,9 +96,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_13${{ inputs.sysver == 'c15' && '13_v' || '13_b' }}-kernel
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_13${{ inputs.sysver == 'c15' && '13_c15' || '13_c16' }}-kernel
           restore-keys: |
-            ccache-${{ runner.os }}-oneplus_13${{ inputs.sysver == 'c15' && '13_v' || '13_b' }}-kernel
+            ccache-${{ runner.os }}-oneplus_13${{ inputs.sysver == 'c15' && '13_c15' || '13_c16' }}-kernel
             ccache-${{ runner.os }}-kernel
 
       - name: Initialize ccache
@@ -133,7 +133,7 @@ jobs:
         run: |
           mkdir kernel_workspace && cd kernel_workspace
           mkdir -p .repo/manifests
-          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m oneplus_13_${{ inputs.sysver == 'c15' && 'v' || 'b' }}.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
+          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8750 -m oneplus_13_${{ inputs.sysver == 'c15' && '' || 'b' }}.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
           repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
 
           for dir in kernel_platform/common kernel_platform/msm-kernel; do
@@ -256,6 +256,18 @@ jobs:
           sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
+
+      - name: Upload setlocalversion-common
+        uses: actions/upload-artifact@v4
+        with:
+          name: setlocalversion-common
+          path: ./kernel_workspace/kernel_platform/common/scripts/setlocalversion
+          
+    - name: Upload setlocalversion-msm-kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: setlocalversion-msm-kernel
+          path: ./kernel_workspace/kernel_platform/msm-kernel/scripts/setlocalversion
 
       - name: Build Kernel
         run: |
