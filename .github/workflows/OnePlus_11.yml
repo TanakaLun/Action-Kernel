@@ -216,7 +216,7 @@ jobs:
       - name: Extract Linux Version from Image
         run: |
           IMAGE_PATH="./AnyKernel3/Image"
-          KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | head -n 1)
+          KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | tail -n +2 | head -n 1 | awk '{print $3}')
           echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
 
       - name: Upload AnyKernel3
