@@ -96,9 +96,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_13${{ inputs.sysver == 'c15' && '13_c15' || '13_c16' }}-kernel
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_13${{ inputs.sysver == 'c15' && '_c15' || '_c16' }}-kernel
           restore-keys: |
-            ccache-${{ runner.os }}-oneplus_13${{ inputs.sysver == 'c15' && '13_c15' || '13_c16' }}-kernel
+            ccache-${{ runner.os }}-oneplus_13${{ inputs.sysver == 'c15' && '_c15' || '_c16' }}-kernel
             ccache-${{ runner.os }}-kernel
 
       - name: Initialize ccache
