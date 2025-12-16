@@ -243,24 +243,13 @@ jobs:
         run: |
           cd kernel_workspace/kernel_platform
           sed -i 's/-4k//g' ./common/arch/arm64/configs/gki_defconfig
-          sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
-          sed -i 's/ -dirty//g' ./msm-kernel/scripts/setlocalversion
-          sed -i 's/ -dirty//g' ./external/dtc/scripts/setlocalversion
+          sed -i 's/ -dirty//g' ./common/scripts/setlocalversion ./msm-kernel/scripts/setlocalversion ./external/dtc/scripts/setlocalversion
+
+          sed -i '$s/echo "$res"/echo "-android12-9$res"/' ./common/scripts/setlocalversion ./msm-kernel/scripts/setlocalversion
+          
           sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
-            s/local oki_infix=o/local oki_infix=android12-9-Mortis/
+            s/local oki_infix=o/local oki_infix=Mortis/
           }' ./common/scripts/setlocalversion
-
-      - name: Upload setlocalversion-common
-        uses: actions/upload-artifact@v4
-        with:
-          name: setlocalversion-common
-          path: ./kernel_workspace/kernel_platform/common/scripts/setlocalversion
-
-      - name: Upload setlocalversion-msm-kernel
-        uses: actions/upload-artifact@v4
-        with:
-          name: setlocalversion-msm-kernel
-          path: ./kernel_workspace/kernel_platform/msm-kernel/scripts/setlocalversion
 
       - name: Build Kernel
         run: |
