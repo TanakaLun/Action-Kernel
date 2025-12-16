@@ -244,9 +244,6 @@ jobs:
 
       - name: Build Kernel
         run: |
-          # cd kernel_workspace
-          # ./kernel_platform/oplus/bazel/oplus_modules_variant.sh sun perf ""
-          # ./kernel_platform/build_with_bazel.py -t sun perf
           export PATH="/usr/lib/ccache:$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH" 
           export PATH="/usr/lib/ccache:$PATH"
           sudo apt install libelf-dev
@@ -269,6 +266,12 @@ jobs:
             echo "未找到 Image 文件"
             exit 1
           fi
+
+      - name: Extract Linux Version from Image
+        run: |
+          IMAGE_PATH="./AnyKernel3/Image"
+          KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | head -n 1)
+          echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
 
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
@@ -296,3 +299,4 @@ jobs:
           BOT_TOKEN: ${{secrets.BOT_TOKEN}}
           MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
           DEVICE: "OnePlus 13"
+          KERNEL_VERSION: ${{ env.KERNEL_VERSION }}

@@ -278,7 +278,13 @@ jobs:
             echo "Image not found"
             exit 1
           fi
-
+    
+      - name: Extract Linux Version from Image
+        run: |
+          IMAGE_PATH="./AnyKernel3/Image"
+          KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | head -n 1)
+          echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+    
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
@@ -305,3 +311,4 @@ jobs:
           BOT_TOKEN: ${{secrets.BOT_TOKEN}}
           MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
           DEVICE: "OnePlus Ace 2"
+          KERNEL_VERSION: ${{ env.KERNEL_VERSION }}

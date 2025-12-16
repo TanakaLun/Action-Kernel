@@ -10,7 +10,8 @@ API_HASH = "d524b414d21f4d37f08684c1df41ac9c"
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
-DEVICE = os.environ.get("DEVICE") 
+DEVICE = os.environ.get("DEVICE")
+KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
 
 def check_environ():
     global CHAT_ID, MESSAGE_THREAD_ID, DEVICE
@@ -34,25 +35,8 @@ def check_environ():
     else:
         MESSAGE_THREAD_ID = None
     
-    # 如果环境变量中没有设备名称，尝试从文件名中提取
-    if not DEVICE:
-        DEVICE = "Unknown Device"
-
-def extract_device_from_filename(filename):
-    """从文件名中提取设备名称作为备选方案"""
-    device_patterns = [
-        r'(Ace2|OP11|OP13|OP13T)',
-        r'^([A-Za-z0-9]+)_',
-    ]
-    
-    for pattern in device_patterns:
-        match = re.search(pattern, filename)
-        if match:
-            device = match.group(1)
-            device = re.sub(r'(\d+)$', r' \1', device)  # 在数字前加空格
-            return device
-    
-    return "Unknown Device"
+    print(f"[+] Device from env: {DEVICE}")
+    print(f"[+] Kernel Version: {KERNEL_VERSION}")
 
 def extract_features_from_filename(filename):
     """从文件名中提取特性信息"""
@@ -71,21 +55,19 @@ def extract_features_from_filename(filename):
     
     return features
 
-def generate_caption(filename, device, features, use_env_device=True):
-    """生成消息"""
-    # 如果使用环境变量中的设备名称，且不是默认值，则使用它
-    if use_env_device and DEVICE != "Unknown Device":
-        device_name = DEVICE
-    else:
-        device_name = device
-    
+def generate_caption(filename, features):
+    """生成包含 Linux 版本信息的消息"""
     # 构建特性列表字符串
     if features:
         features_text = "\n".join([f"✓ {feature}" for feature in features])
     else:
         features_text = "No additional features"
-
-    device_tag = device_name.lower().replace(" ", "")
+    
+    # 设备标签格式
+    device_tag = DEVICE.lower().replace(" ", "")
+    
+    # 使用提取的内核版本号
+    version_display = KERNEL_VERSION
     
     # 生成消息
     caption = f"""
@@ -93,7 +75,8 @@ def generate_caption(filename, device, features, use_env_device=True):
 #oki
 #{device_tag}
 
-**Device:** {device_name}
+**Device:** {DEVICE}
+**Kernel:** {version_display}
 **File:** `{filename}`
 
 **Enabled Features:**
@@ -106,7 +89,8 @@ def generate_caption(filename, device, features, use_env_device=True):
 **New Build Published!**
 #{device_tag}
 
-**Device:** {device_name}
+**Device:** {DEVICE}
+**Kernel:** {version_display}
 **File:** `{filename}`
 **Features:** {', '.join(features) if features else 'Standard'}
 """.strip()
@@ -132,14 +116,8 @@ async def main():
         captions = []
         for file in files:
             filename = os.path.basename(file)
-            
-            # 从文件名中提取设备和特性（作为备选）
-            file_device = extract_device_from_filename(filename)
             features = extract_features_from_filename(filename)
-            
-            # 优先使用环境变量中的设备名称
-            use_env_device = True
-            caption = generate_caption(filename, file_device, features, use_env_device)
+            caption = generate_caption(filename, features)
             captions.append(caption)
         
         # 只给最后一个文件附加完整消息
@@ -150,8 +128,6 @@ async def main():
         print("---")
         print(final_captions[-1])
         print("---")
-        print(f"[+] Device from env: {DEVICE}")
-        print(f"[+] Device from filename: {extract_device_from_filename(os.path.basename(files[-1]))}")
         print(f"[+] Features detected: {extract_features_from_filename(os.path.basename(files[-1]))}")
         
         print("[+] Sending")
