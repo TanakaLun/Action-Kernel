@@ -250,6 +250,18 @@ jobs:
             s/local oki_infix=o/local oki_infix=android12-9-Mortis/
           }' ./common/scripts/setlocalversion
 
+      - name: Upload setlocalversion-common
+        uses: actions/upload-artifact@v4
+        with:
+          name: setlocalversion-common
+          path: ./kernel_workspace/kernel_platform/common/scripts/setlocalversion
+
+      - name: Upload setlocalversion-msm-kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: setlocalversion-msm-kernel
+          path: ./kernel_workspace/kernel_platform/msm-kernel/scripts/setlocalversion
+
       - name: Build Kernel
         run: |
           export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin:$PATH"
