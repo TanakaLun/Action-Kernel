@@ -263,7 +263,7 @@ jobs:
           name: setlocalversion-common
           path: ./kernel_workspace/kernel_platform/common/scripts/setlocalversion
           
-    - name: Upload setlocalversion-msm-kernel
+      - name: Upload setlocalversion-msm-kernel
         uses: actions/upload-artifact@v4
         with:
           name: setlocalversion-msm-kernel
