@@ -254,7 +254,7 @@ jobs:
           cd kernel_workspace/kernel_platform
           sed -i 's/-4k//g' ./common/arch/arm64/configs/gki_defconfig
           sed -i 's/ -dirty//g' ./common/scripts/setlocalversion ./msm-kernel/scripts/setlocalversion ./external/dtc/scripts/setlocalversion
-          sed -i "\$s/echo \"\$res\"/echo \"-android15-8-o\$res\"/" ./common/scripts/setlocalversion ./msm-kernel/scripts/setlocalversion
+          sed -i '$s/${KERNELVERSION}/${KERNELVERSION}-android15-8-o/' ./msm-kernel/scripts/setlocalversion ./common/scripts/setlocalversion
 
       - name: Build Kernel
         run: |
