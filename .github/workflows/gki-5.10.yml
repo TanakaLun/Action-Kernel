@@ -439,7 +439,7 @@ jobs:
         run: |
           if [ -f "${{ env.ZIP_NAME }}" ]; then
             pip3 install telethon
-            python3 upload_telegram.py "${{ env.ZIP_NAME }}"
+            python3 ./Tools/upload_telegram.py "${{ env.ZIP_NAME }}"
           else
             echo "ZIP file not found"
             exit 1
