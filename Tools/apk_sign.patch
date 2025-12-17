@@ -1,9 +1,13 @@
---- apk_sign.c
-+++ apk_sign.c
-@@ -309,4 +309,5 @@
+--- ./kernel/apk_sign.c
++++ ./kernel/apk_sign.c
+@@ -308,5 +308,8 @@
+ 
  bool is_manager_apk(char *path)
  {
-     return check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH);
-+           check_v2_signature(path, 384, "7e0c6d7278a3bb8e364e0fcba95afaf3666cf5ff3c245a3b63c8833bd0445cc4")); // 5ec1cff
+-    return check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH);
++    return check_v2_signature(path, EXPECTED_SIZE, EXPECTED_HASH) ||
++           check_v2_signature(
++               path, 384,
++               "7e0c6d7278a3bb8e364e0fcba95afaf3666cf5ff3c245a3b63c8833bd0445cc4");
  }
 \ No newline at end of file
