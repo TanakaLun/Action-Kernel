@@ -417,7 +417,6 @@ jobs:
           if [ "${{ inputs.better_net }}" == "true" ]; then FEATURES="${FEATURES}_NET"; fi
           if [ "${{ inputs.baseband_guard }}" == "true" ]; then FEATURES="${FEATURES}_BBG"; fi
           if [ "${{ inputs.lz4kd }}" == "true" ]; then FEATURES="${FEATURES}_LZ4KD"; fi
-          if [ "${{ inputs.use_O2 }}" == "true" ]; then FEATURES="${FEATURES}_O2"; fi
           [ -z "$FEATURES" ] && FEATURES="_STOCK"
           ZIP_NAME="${ZIP_BASE}${FEATURES}.zip"
           zip -r "../$ZIP_NAME" ./*
@@ -444,7 +443,6 @@ jobs:
           BETTER_NET: ${{ inputs.better_net }}
           BASEBAND_GUARD: ${{ inputs.baseband_guard }}
           LZ4KD: ${{ inputs.lz4kd }}
-          USE_O2: ${{ inputs.use_O2 }}
           ZIP_NAME: ${{ env.ZIP_NAME }}
         run: |
           if [ -f "${{ env.ZIP_NAME }}" ]; then
