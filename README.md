@@ -1,8 +1,8 @@
 # Credits：
-https://github.com/Liyu717/Action_Build_OnePlusACE2_Kernel
+OnePlus Kernel Build：https://github.com/Liyu717/Action_Build_OnePlusACE2_Kernel
 https://github.com/Xiaomichael/OnePlus-Actions
 https://github.com/CHIZI-0618/OnePlus13T_Kernel_Build
-
+GKI Build ：https://github.com/elysias123/GKI_KernelSU_SUSFS
 # Status：
 [![OnePlus 13 Kernel Build](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_13.yml/badge.svg)](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_13.yml)
 [![OnePlus 11 Kernel Build](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_11.yml/badge.svg)](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_11.yml)

@@ -404,9 +404,6 @@ jobs:
             KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | tail -n +2 | head -n 1 | awk '{print $3}')
             echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
             echo "Extracted kernel version: $KERNEL_VERSION"
-
-            BUILD_INFO=$(strings "$IMAGE_PATH" | grep "Linux version" | head -n 1)
-            echo "BUILD_INFO=$BUILD_INFO" >> $GITHUB_ENV
           else
             echo "Image file not found at $IMAGE_PATH"
             exit 1

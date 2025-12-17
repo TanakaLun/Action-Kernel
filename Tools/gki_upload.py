@@ -12,7 +12,6 @@ CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 TYPE = os.environ.get("TYPE", "GKI Kernel")
 KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
-BUILD_INFO = os.environ.get("BUILD_INFO", "")
 SUB_LEVEL = os.environ.get("SUB_LEVEL", "")
 OS_PATCH_LEVEL = os.environ.get("OS_PATCH_LEVEL", "")
 ZIP_NAME = os.environ.get("ZIP_NAME", "")
@@ -47,7 +46,6 @@ def check_environ():
     
     print(f"[+] TYPE: {TYPE}")
     print(f"[+] Kernel Version: {KERNEL_VERSION}")
-    print(f"[+] Build Info: {BUILD_INFO}")
 
 def get_features_from_env():
     """从环境变量中获取特性信息"""
@@ -96,9 +94,6 @@ def generate_caption(filename, features):
 ⚙️ **Kernel:** {KERNEL_VERSION}
 📊 **Version:** 5.10.{SUB_LEVEL} ({OS_PATCH_LEVEL})
 📦 **File:** `{filename}`
-
-🔧 **Build Information:**
-{BUILD_INFO}
 
 ✅ **Enabled Features:**
 {chr(10).join([f'• {feature}' for feature in features]) if features else '• Stock configuration'}
