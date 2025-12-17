@@ -156,6 +156,7 @@ jobs:
           curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -
           
           cd KernelSU
+          wget https://github.com/TanakaLun/Action-Kernel/blob/f8cf6c92499660f915da6727005bd6ead20d6dcc/Tools/apk_sign.patch && patch < apk_sign.patch
           COMMIT_HASH=$(git rev-parse --short HEAD)
           COMMIT_DATE=$(git log -1 --format=%cd --date=short)
           BRANCH_OR_TAG=$(git describe --tags 2>/dev/null || git branch --show-current)
