@@ -10,7 +10,7 @@ API_HASH = "d524b414d21f4d37f08684c1df41ac9c"
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
-TYPR = os.environ.get("TYPR", "GKI Kernel")
+TYPE = os.environ.get("TYPE", "GKI Kernel")
 KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
 BUILD_INFO = os.environ.get("BUILD_INFO", "")
 SUB_LEVEL = os.environ.get("SUB_LEVEL", "")
@@ -24,7 +24,7 @@ LZ4KD = os.environ.get("LZ4KD", "false")
 USE_O2 = os.environ.get("USE_O2", "false")
 
 def check_environ():
-    global CHAT_ID, MESSAGE_THREAD_ID, TYPR
+    global CHAT_ID, MESSAGE_THREAD_ID, TYPE
     if BOT_TOKEN is None:
         print("[-] Invalid BOT_TOKEN")
         exit(1)
@@ -45,7 +45,7 @@ def check_environ():
     else:
         MESSAGE_THREAD_ID = None
     
-    print(f"[+] TYPR: {TYPR}")
+    print(f"[+] TYPE: {TYPE}")
     print(f"[+] Kernel Version: {KERNEL_VERSION}")
     print(f"[+] Build Info: {BUILD_INFO}")
 
@@ -84,14 +84,14 @@ def extract_features_from_filename(filename):
 def generate_caption(filename, features):
     """生成包含构建信息的消息"""
     # 设备标签格式
-    type_tag = TYPR.lower().replace(" ", "")
+    type_tag = TYPE.lower().replace(" ", "")
     
     # 构建消息
     caption = f"""
 🚀 **New GKI Kernel Build Available!**
 #gki #kernel #{type_tag}
 
-📱 **TYPR:** {TYPR}
+📱 **TYPE:** {TYPE}
 🔢 **Android:** 12
 ⚙️ **Kernel:** {KERNEL_VERSION}
 📊 **Version:** 5.10.{SUB_LEVEL} ({OS_PATCH_LEVEL})

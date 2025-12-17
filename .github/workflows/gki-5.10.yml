@@ -256,7 +256,8 @@ jobs:
           CURRENT_TIME=$(TZ='Asia/Shanghai' date +"%a %b %d %H:%M:%S UTC+8 %Y")
           
           # Set kernel localversion
-          sed -i '$s|echo "\$res"|echo "\$res-custom-$BUILD_TIME"|' ./common/scripts/setlocalversion
+          # sed -i '$s|echo "\$res"|echo "\$res-custom-$BUILD_TIME"|' ./common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' ./common/scripts/setlocalversion
 
           # Set build timestamp
           perl -pi -e "s{UTS_VERSION=\"\\\$\(echo \\\$UTS_VERSION \\\$CONFIG_FLAGS \\\$TIMESTAMP \\| cut -b -\\\$UTS_LEN\)\"}{UTS_VERSION=\"#1 SMP PREEMPT $CURRENT_TIME\"}" ./common/scripts/mkcompile_h
@@ -400,7 +401,7 @@ jobs:
         run: |
           IMAGE_PATH="./AnyKernel3/Image"
           if [ -f "$IMAGE_PATH" ]; then
-            KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | head -n 1 | awk '{print $3}')
+            KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | tail -n +2 | head -n 1 | awk '{print $3}')
             echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
             echo "Extracted kernel version: $KERNEL_VERSION"
 
