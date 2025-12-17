@@ -46,6 +46,7 @@ def extract_features_from_filename(filename):
         '_IPT': "IPTables",
         '_BBG': "Baseband Guard",
         '_LZ4KD': "LZ4KD",
+        '_LZ4': "LZ4",
         '_HymoFS': "HymoFS",
     }
     

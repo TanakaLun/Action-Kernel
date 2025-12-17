@@ -6,27 +6,27 @@ on:
       ksu:
         description: "启用KSU"
         required: false
-        输入: boolean
+        type: boolean
         default: false
       better_net:
         description: "启用网络功能增强配置"
         required: false
-        输入: boolean
+        type: boolean
         default: true
       baseband_guard:
         description: "启用内核级基带保护"
         required: true
-        输入: boolean
+        type: boolean
         default: false
       lz4kd:
         description: "启用lz4kd压缩算法"
         required: false
-        输入: boolean
+        type: boolean
         default: false
       hymofs:
         description: "启用HymoFS支持"
         required: false
-        输入: boolean
+        type: boolean
         default: false
 
 jobs:
@@ -156,7 +156,6 @@ jobs:
           curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -
           
           cd KernelSU
-          wget https://github.com/TanakaLun/Action-Kernel/blob/f8cf6c92499660f915da6727005bd6ead20d6dcc/Tools/apk_sign.patch && patch -p0 < apk_sign.patch
           COMMIT_HASH=$(git rev-parse --short HEAD)
           COMMIT_DATE=$(git log -1 --format=%cd --date=short)
           BRANCH_OR_TAG=$(git describe --tags 2>/dev/null || git branch --show-current)
