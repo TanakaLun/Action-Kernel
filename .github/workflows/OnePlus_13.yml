@@ -250,6 +250,9 @@ jobs:
       - name: Other tasks
         run: |
           cd kernel_workspace/kernel_platform/common
+          # 启用TMPFS
+          echo "CONFIG_TMPFS_XATTR=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./arch/arm64/configs/gki_defconfig
           # 设置 LTO 以防止爆炸
           sed -i 's/^CONFIG_LTO=n/CONFIG_LTO=y/' ./arch/arm64/configs/gki_defconfig
           sed -i 's/^CONFIG_LTO_CLANG_FULL=y/CONFIG_LTO_CLANG_THIN=y/' ./arch/arm64/configs/gki_defconfig
