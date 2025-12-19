@@ -168,6 +168,10 @@ jobs:
             patch -p1 -F 3 < lz4kd.patch || true
             cp ../../SukiSU_patch/other/zram/zram_patch/6.6/lz4k_oplus.patch ./
             patch -p1 -F 3 < lz4k_oplus.patch || true
+            
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./arch/arm64/configs/gki_defconfig
           else
             git apply -p1 < 001-lz4.patch || true
           fi
