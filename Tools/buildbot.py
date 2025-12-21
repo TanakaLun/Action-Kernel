@@ -43,7 +43,7 @@ def extract_features_from_filename(filename):
     features = []
     feature_mapping = {
         '_KSU': "KernelSU",
-        '_IPT': "IPTables",
+        '_BetterNet': "BetterNet",
         '_BBG': "Baseband Guard",
         '_LZ4KD': "LZ4KD",
         '_LZ4': "LZ4",

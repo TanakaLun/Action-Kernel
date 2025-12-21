@@ -241,10 +241,10 @@ jobs:
       - name: Apply SCHED Patch
         run: |
           cd kernel_workspace/kernel_platform/common
-          wget https://raw.githubusercontent.com/Numbersf/SCHED_PATCH/refs/heads/sm8750/fengchi_oneplus_13_b.patch
+          wget https://raw.githubusercontent.com/Numbersf/SCHED_PATCH/refs/heads/sm8750/fengchi_oneplus_13oneplus_13${{ inputs.sysver == 'c15' && '' || '_b' }}.patch
           echo "Apply fengchi patch"
-          dos2unix fengchi_oneplus_13_b.patch
-          patch -p1 -F 3 < fengchi_oneplus_13_b.patch
+          dos2unix fengchi_oneplus_13${{ inputs.sysver == 'c15' && '' || '_b' }}.patch
+          patch -p1 -F 3 < fengchi_oneplus_13${{ inputs.sysver == 'c15' && '' || '_b' }}.patch
           echo "Done"
           
       - name: Other tasks
@@ -306,7 +306,7 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: OP13-${{ inputs.sysver }}_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '_LZ4' }}${{ inputs.hymofs && '_HymoFS' || '' }}
+          name: OP13-${{ inputs.sysver }}_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '_LZ4' }}${{ inputs.hymofs && '_HymoFS' || '' }}
           path: ./AnyKernel3/*
 
       - name: "Get bot script"
@@ -318,10 +318,10 @@ jobs:
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd AnyKernel3
-            zip -q -r "../OP13-${{ inputs.sysver }}_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '_LZ4' }}${{ inputs.hymofs && '_HymoFS' || '' }}.zip" ./*
+            zip -q -r "../OP13-${{ inputs.sysver }}_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '_LZ4' }}${{ inputs.hymofs && '_HymoFS' || '' }}.zip" ./*
             cd ..
             pip3 install telethon
-            python3 ./bot/Tools/buildbot.py "./OP13-${{ inputs.sysver }}_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_IPT' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '_LZ4' }}${{ inputs.hymofs && '_HymoFS' || '' }}.zip"
+            python3 ./bot/Tools/buildbot.py "./OP13-${{ inputs.sysver }}_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '_LZ4' }}${{ inputs.hymofs && '_HymoFS' || '' }}.zip"
             echo "The file has been uploaded to Telegram."
           fi
         env:
