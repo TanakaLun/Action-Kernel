@@ -235,8 +235,10 @@ jobs:
       - name: Setup HymoFS
         if: ${{ inputs.hymofs }}
         run: |
-          cd kernel_workspace/kernel_platform/common
-          echo "CONFIG_HYMOFS=y" >> ./arch/arm64/configs/gki_defconfig
+          cd kernel_workspace/kernel_platform
+          wget https://raw.githubusercontent.com/Anatdx/HymoFS/refs/heads/android15_6.6/patch/hymofs.patch
+          patch -p1 -F 3 < hymofs.patch
+          echo "CONFIG_HYMOFS=y" >> ./common/arch/arm64/configs/gki_defconfig
 
       - name: Apply SCHED Patch
         run: |
