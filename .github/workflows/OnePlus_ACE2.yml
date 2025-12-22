@@ -28,6 +28,16 @@ on:
         required: false
         type: boolean
         default: false
+      ADIOS:
+        description: "启用ADIOS IO算法"
+        required: false
+        type: boolean
+        default: false
+      fzbp:
+        description: "启用零宽越权修复"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -213,20 +223,12 @@ jobs:
           cd kernel_workspace/kernel_platform/common
           echo "CONFIG_HYMOFS=y" >> ./arch/arm64/configs/gki_defconfig
 
-      - name: Configure Kernel Options
+      - name: Setup ADIOS IO
+        if: ${{ inputs.ADIOS }}
         run: |
-          echo "Configure kernel compilation options..."
-          
           cd kernel_workspace/kernel_platform/common
-          
-          if [ "${{ inputs.lz4kd }}" == "true" ]; then
-            echo "Enable the lz4kd compression algorithm..."
-            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./arch/arm64/configs/gki_defconfig
-            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./arch/arm64/configs/gki_defconfig
-            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./arch/arm64/configs/gki_defconfig
-          fi
-          
-          echo "Kernel configuration update completed."
+          echo "CONFIG_MQ_IOSCHED_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_MQ_IOSCHED_DEFAULT_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
 
       - name: Other tasks
         run: |
@@ -263,11 +265,13 @@ jobs:
         # with:
           # path: ./kernel_workspace/kernel_platform/common//*
           
-      - name: Applying Zero Pass Patch (test)
+      - name: Fix-ZWSP-ByPass
+        if: ${{ inputs.fzbp }}
         run: |
           cd kernel_workspace/kernel_platform
-          wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/zero_pass.patch
-          patch -p0 < zero_pass.patch
+          echo "Fix ZWSP-ByPass (experimental)"
+          wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/ZWSP_ByPass.patch
+          patch -p0 < ZWSP_ByPass.patch
 
       - name: Build Kernel
         run: |
@@ -309,12 +313,12 @@ jobs:
           name: Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.hymofs && '_HymoFS' || '' }}
           path: ./AnyKernel3/*
           
-      - name: "Get bot script"
+      - name: Get bot script
         uses: actions/checkout@v4
         with:
           path: bot
 
-      - name: "Upload to telegram group"
+      - name: Upload to telegram group
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd AnyKernel3
@@ -330,3 +334,10 @@ jobs:
           MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
           DEVICE: "OnePlus Ace 2"
           KERNEL_VERSION: ${{ env.KERNEL_VERSION }}
+          KSU: ${{ inputs.ksu }}
+          BETTER_NET: ${{ inputs.better_net }}
+          BASEBAND_GUARD: ${{ inputs.baseband_guard }}
+          LZ4KD: ${{ inputs.lz4kd }}
+          HYMOFS: ${{ inputs.hymofs }}
+          ADIOS: ${{ inputs.ADIOS }}
+          FZBP: ${{ inputs.fzbp }}

@@ -13,6 +13,15 @@ MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 DEVICE = os.environ.get("DEVICE")
 KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
 
+# 从环境变量获取特性标志
+KSU = os.environ.get("KSU", "").lower() == "true"
+BETTER_NET = os.environ.get("BETTER_NET", "").lower() == "true"
+BASEBAND_GUARD = os.environ.get("BASEBAND_GUARD", "").lower() == "true"
+LZ4KD = os.environ.get("LZ4KD", "").lower() == "true"
+HYMOFS = os.environ.get("HYMOFS", "").lower() == "true"
+ADIOS = os.environ.get("ADIOS", "").lower() == "true"
+FZBP = os.environ.get("FZBP", "").lower() == "true"
+
 def check_environ():
     global CHAT_ID, MESSAGE_THREAD_ID, DEVICE
     if BOT_TOKEN is None:
@@ -37,22 +46,39 @@ def check_environ():
     
     print(f"[+] Device from env: {DEVICE}")
     print(f"[+] Kernel Version: {KERNEL_VERSION}")
+    print(f"[+] Features from env:")
+    print(f"    KSU: {KSU}")
+    print(f"    BetterNet: {BETTER_NET}")
+    print(f"    Baseband Guard: {BASEBAND_GUARD}")
+    print(f"    LZ4KD: {LZ4KD}")
+    print(f"    HymoFS: {HYMOFS}")
+    print(f"    ADIOS: {ADIOS}")
+    print(f"    FZBP: {FZBP}")
 
-def extract_features_from_filename(filename):
-    """从文件名中提取特性信息"""
+def get_features_from_env():
+    """从环境变量获取特性信息"""
     features = []
-    feature_mapping = {
-        '_KSU': "KernelSU",
-        '_BetterNet': "BetterNet",
-        '_BBG': "Baseband Guard",
-        '_LZ4KD': "LZ4KD",
-        '_LZ4': "LZ4",
-        '_HymoFS': "HymoFS",
-    }
     
-    for keyword, feature_name in feature_mapping.items():
-        if keyword in filename:
-            features.append(feature_name)
+    if KSU:
+        features.append("KernelSU")
+    
+    if BETTER_NET:
+        features.append("BetterNet")
+    
+    if BASEBAND_GUARD:
+        features.append("Baseband Guard")
+    
+    if LZ4KD:
+        features.append("LZ4KD")
+    
+    if HYMOFS:
+        features.append("HymoFS")
+    
+    if ADIOS:
+        features.append("ADIOS")
+    
+    if FZBP:
+        features.append("Zero-width Bypass Fix")
     
     return features
 
@@ -60,7 +86,7 @@ def generate_caption(filename, features):
     """生成包含 Linux 版本信息的消息"""
     # 构建特性列表字符串
     if features:
-        features_text = "\n".join([f"✓ {feature}" for feature in features])
+        features_text = "\n".join([f"{feature} ✓" for feature in features])
     else:
         features_text = "No additional features"
     
@@ -117,7 +143,7 @@ async def main():
         captions = []
         for file in files:
             filename = os.path.basename(file)
-            features = extract_features_from_filename(filename)
+            features = get_features_from_env()  # 从环境变量获取特性
             caption = generate_caption(filename, features)
             captions.append(caption)
         
@@ -129,7 +155,7 @@ async def main():
         print("---")
         print(final_captions[-1])
         print("---")
-        print(f"[+] Features detected: {extract_features_from_filename(os.path.basename(files[-1]))}")
+        print(f"[+] Features from env: {get_features_from_env()}")
         
         print("[+] Sending")
         await bot.send_file(
