@@ -157,7 +157,7 @@ jobs:
         if: ${{ inputs.ksu }}
         run: |
           cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/main/kernel/setup.sh" | bash -
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
           
           cd KernelSU
           COMMIT_HASH=$(git rev-parse --short HEAD)
@@ -267,7 +267,7 @@ jobs:
         run: |
           cd kernel_workspace/kernel_platform
           wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/zero_pass.patch
-          patch -p3 < zero_pass.patch
+          patch -p0 < zero_pass.patch
 
       - name: Build Kernel
         run: |
