@@ -266,7 +266,7 @@ jobs:
       - name: Applying Zero Pass Patch (test)
         run: |
           cd kernel_workspace/kernel_platform
-          wget https://github.com/TanakaLun/Action-Kernel/blob/main/Tools/zero_pass.patch
+          wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/zero_pass.patch
           patch -p3 < zero_pass.patch
 
       - name: Build Kernel

@@ -1,4 +1,4 @@
---- ./common/fs/unicode/utf8-norm.c.bak	2025-12-22 17:01:04.000000000 +0800
+--- ./common/fs/unicode/utf8-norm.c	2025-12-22 17:01:04.000000000 +0800
 +++ ./common/fs/unicode/utf8-norm.c	2025-12-23 01:13:12.000000000 +0800
 @@ -693,22 +693,22 @@
  		if (utf8agetab[LEAF_GEN(leaf)] > u8c->data->maxage) {
