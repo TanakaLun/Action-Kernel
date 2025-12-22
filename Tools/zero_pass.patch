@@ -1,0 +1,41 @@
+--- ./common/fs/unicode/utf8-norm.c.bak	2025-12-22 17:01:04.000000000 +0800
++++ ./common/fs/unicode/utf8-norm.c	2025-12-23 01:13:12.000000000 +0800
+@@ -693,22 +693,22 @@
+ 		if (utf8agetab[LEAF_GEN(leaf)] > u8c->data->maxage) {
+ 			ccc = STOPPER;
+ 		} else if (ccc == DECOMPOSE) {
+-			u8c->len -= utf8clen(u8c->s);
+-			u8c->p = u8c->s + utf8clen(u8c->s);
+-			u8c->s = LEAF_STR(leaf);
+-			/* Empty decomposition implies CCC 0. */
+-			if (*u8c->s == '\0') {
+-				if (u8c->ccc == STOPPER)
+-					continue;
+-				ccc = STOPPER;
+-				goto ccc_mismatch;
+-			}
+-
+-			leaf = utf8lookup(u8c->data, u8c->hangul, u8c->s);
+-			if (!leaf)
+-				return -1;
+-			ccc = LEAF_CCC(leaf);
+-		}
++            /* 先检查分解结果是否为空 */
++            if (*LEAF_STR(leaf) == '\0') {
++                /* 如果是可忽略字符（如零宽空格），标记为普通字符 */
++                ccc = STOPPER;
++            } else {
++                /* 正常分解字符：移动指针并更新状态 */
++                u8c->len -= utf8clen(u8c->s);
++                u8c->p = u8c->s + utf8clen(u8c->s);
++                u8c->s = LEAF_STR(leaf);
++        
++                leaf = utf8lookup(u8c->data, u8c->hangul, u8c->s);
++                if (!leaf)
++                    return -1;
++                ccc = LEAF_CCC(leaf);
++            }
++        }
+ 
+ 		/*
+ 		 * If this is not a stopper, then see if it updates

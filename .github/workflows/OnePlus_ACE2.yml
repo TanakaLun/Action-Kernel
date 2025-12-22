@@ -258,11 +258,17 @@ jobs:
             s/local oki_infix=o/local oki_infix=Mortis/
           }' ./common/scripts/setlocalversion
 
-      - name: Upload Common
-        uses: actions/upload-artifact@v4
-        with:
-          path: ./kernel_workspace/kernel_platform/common//*
+      # - name: Upload Common
+        # uses: actions/upload-artifact@v4
+        # with:
+          # path: ./kernel_workspace/kernel_platform/common//*
           
+      - name: Applying Zero Pass Patch (test)
+        run: |
+          cd kernel_workspace/kernel_platform
+          wget https://github.com/TanakaLun/Action-Kernel/blob/main/Tools/zero_pass.patch
+          patch -p3 < zero_pass.patch
+
       - name: Build Kernel
         run: |
           export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin:$PATH"
