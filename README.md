@@ -11,15 +11,14 @@
 | **OnePlus 13** | [![OnePlus 13 Kernel Build](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_13.yml/badge.svg)](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_13.yml) | [查看详情](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_13.yml) |
 | **OnePlus 11** | [![OnePlus 11 Kernel Build](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_11.yml/badge.svg)](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_11.yml) | [查看详情](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_11.yml) |
 | **OnePlus Ace 2** | [![OnePlus Ace2 Kernel Build](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_ACE2.yml/badge.svg)](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_ACE2.yml) | [查看详情](https://github.com/TanakaLun/Action-Kernel/actions/workflows/OnePlus_ACE2.yml) |
-| **GKI (Android 12 - 5.10)** | [![A12-5.10 Kernel Build](https://github.com/TanakaLun/Action-Kernel/actions/workflows/gki-5.10.yml/badge.svg)](https://github.com/TanakaLun/Action-Kernel/actions/workflows/gki-5.10.yml) | [查看详情](https://github.com/TanakaLun/Action-Kernel/actions/workflows/gki-5.10.yml) |
 
 ---
 
 ## ✨ 项目特性
 
 * **惰性维护**：本仓库不会积极维护
-* **少量设备支持**：仅提供部分机型的OKI及版本的GKI构建
-* **默认不集成 KernelSU GKI 模式**：推荐使用官方KSU/MKSU的LKM模式
+* **少量设备支持**：仅提供部分机型的OKI构建
+* **默认不集成 KernelSU GKI 模式**：推荐使用KSU Official/MKSU的LKM模式
 
 ---
 
