@@ -107,7 +107,8 @@ def generate_caption(filename, features):
 **File:** `{filename}`
 
 **Enabled Features:**
-{features_text}
+```{features_text}
+```
 """.strip()
     
     # 如果消息太长，截断
