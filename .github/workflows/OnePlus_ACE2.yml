@@ -294,7 +294,7 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}
+          name: Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}
           path: ./AnyKernel3/*
           
       - name: Get bot script
@@ -306,10 +306,10 @@ jobs:
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd AnyKernel3
-            zip -q -r "../Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}.zip" ./*
+            zip -q -r "../Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}.zip" ./*
             cd ..
             pip3 install telethon
-            python3 ./bot/Tools/buildbot.py "./Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}.zip"
+            python3 ./bot/Tools/buildbot.py "./Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}.zip"
             echo "The file has been uploaded to Telegram."
           fi
         env:
@@ -322,5 +322,5 @@ jobs:
           BETTER_NET: ${{ inputs.better_net }}
           BASEBAND_GUARD: ${{ inputs.baseband_guard }}
           LZ4KD: ${{ inputs.lz4kd }}
-          ADIOS: ${{ inputs.ADIOS }}
+          ADIOS: ${{ inputs.adios }}
           FZBP: ${{ inputs.fzbp }}
