@@ -3,6 +3,14 @@ name: OnePlus Ace2 Kernel Build
 on:
   workflow_dispatch:
     inputs:
+      source:
+        description: "源码来源"
+        required: true
+        type: choice
+        options:
+          - 'Xiaomichael'
+          - 'OnePlusOSS'
+        default: 'OnePlusOSS'
       ksu:
         description: "启用KSU"
         required: false
