@@ -130,7 +130,7 @@ jobs:
         run: |
           mkdir kernel_workspace && cd kernel_workspace
           mkdir -p .repo/manifests
-          repo init -u https://github.com/${{ inputs.source }}/kernel_manifest.git -b oneplus/sm8475 -m oneplus_ace2_v.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
+          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8475 -m oneplus_ace2_v.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
           repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
 
           for dir in kernel_platform/common kernel_platform/msm-kernel; do
