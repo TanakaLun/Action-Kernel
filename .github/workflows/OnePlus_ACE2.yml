@@ -11,13 +11,22 @@ on:
           - 'Xiaomichael'
           - 'OnePlusOSS'
         default: 'OnePlusOSS'
-      ksu:
-        description: "启用KSU"
+      ksu_type:
+        description: "KSU类型选择"
+        required: true
+        type: choice
+        options:
+          - 'none'
+          - 'Official'
+          - 'resukisu'
+        default: 'none'
+      susfs:
+        description: "启用SUSFS"
         required: false
         type: boolean
         default: false
-      resukisu:
-        description: "启用ReSukiSU"
+      kpm:
+        description: "启用KPM"
         required: false
         type: boolean
         default: false
@@ -41,8 +50,8 @@ on:
         required: false
         type: boolean
         default: false
-      fzbp:
-        description: "启用零宽越权修复"
+      bbr:
+        description: "启用BBR算法"
         required: false
         type: boolean
         default: false
@@ -56,16 +65,17 @@ jobs:
       CCACHE_NOHASHDIR: "true"
       CCACHE_HARDLINK: "true"
       CCACHE_MAXSIZE: "8G"
+      ANDROID_VERSION: "android12"
+      KERNEL_VERSION: "5.10"
 
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Cache Env
         run: |
-          echo "设置机型隔离缓存目录..."
+          echo "Setting up cache directory..."
           echo "CCACHE_DIR=$HOME/.ccache_oneplus_ace2_kernel" >> $GITHUB_ENV
           mkdir -p "$HOME/.ccache_oneplus_ace2_kernel"
-          echo "缓存目录已设置: $HOME/.ccache_oneplus_ace2_kernel"
 
       - name: Maximize Build Space
         uses: easimon/maximize-build-space@master
@@ -77,177 +87,185 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - name: Check Disk Space
-        run: df -h
-
-      - name: Create and Enable 3G Swap
-        run: |
-          sudo swapoff -a
-          sudo fallocate -l 3G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
-
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev bc flex bison libelf-dev tree dos2unix ccache python3 git curl liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk cpio lz4 lzop pahole dwarves coreutils procps
 
-      - name: Restore ccache
+      - name: Restore ccache (With SUSFS)
+        if: ${{ inputs.susfs }}
         uses: actions/cache@v3
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-kernel
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-kernel-susfs
           restore-keys: |
-            ccache-${{ runner.os }}-oneplus_ace2-kernel
-            ccache-${{ runner.os }}-kernel
+            ccache-${{ runner.os }}-oneplus_ace2-kernel-susfs
+
+      - name: Restore ccache (Without SUSFS)
+        if: ${{ !inputs.susfs }}
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-kernel-nosusfs
+          restore-keys: |
+            ccache-${{ runner.os }}-oneplus_ace2-kernel-nosusfs
 
       - name: Initialize ccache
         run: |
-          echo "Initialize ccache..."
-          INIT_FLAG="${{ env.CCACHE_DIR }}/.ccache_initialized"
-          
-          if command -v ccache >/dev/null 2>&1; then
-            if [ ! -f "$INIT_FLAG" ]; then
-              mkdir -p "${{ env.CCACHE_DIR }}"
-              ccache -M ${{ env.CCACHE_MAXSIZE }}
-              touch "$INIT_FLAG"
-              echo "ccache initialization completed"
-            else
-              echo "ccache already exists, skip initialization."
-            fi
-          else
-            echo "The ccache command was not found; initialization was skipped."
-          fi
+          mkdir -p "${{ env.CCACHE_DIR }}"
+          ccache -M ${{ env.CCACHE_MAXSIZE }}
           ccache -s
-          echo "ccache initialization process completed"
 
       - name: Configure Git and repo
         run: |
           git config --global user.email "bot@kernelsu.org"
           git config --global user.name "KernelSUBot"
-          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
 
       - name: Initialize repo and sync
         run: |
           mkdir kernel_workspace && cd kernel_workspace
-          mkdir -p .repo/manifests
           repo init -u https://github.com/${{ inputs.source }}/kernel_manifest.git -b oneplus/sm8475 -m oneplus_ace2_b.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
           repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
 
           for dir in kernel_platform/common kernel_platform/msm-kernel; do
-            if [ -e "$dir/BUILD.bazel" ]; then
-              sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' "$dir/BUILD.bazel"
-            fi
-            rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || echo "No protected exports in $dir"
+            rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || true
           done
+         
+      - name: Setup KSU
+        if: ${{ inputs.ksu_type != 'none' }}
+        run: |
+          cd kernel_workspace/kernel_platform
           
-      - name: Setup lz4kd
-        if: ${{ inputs.lz4kd }}
+          if [ "${{ inputs.ksu_type }}" == "Official" ]; then          
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+          elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
+            cd KernelSU
+            curl -L -o resukisu_setup.bin https://github.com/Xiaomichael/OnePlus-Actions/raw/Build/script/resukisu_setup.bin
+            chmod +x resukisu_setup.bin
+            ./resukisu_setup.bin
+            rm -f resukisu_setup.bin
+          fi
+
+      - name: Setup Patches
+        if: ${{ inputs.ksu_type != 'none' || inputs.susfs || inputs.lz4kd }}
         run: |
           cd kernel_workspace
-          echo "Download ZRAM Patches..."
+
+          if [ "${{ inputs.susfs }}" == "true" ]; then          
+            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+          fi
+          git clone https://github.com/Xiaomichael/kernel_patches.git
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
           
           cd kernel_platform
-          echo "Copy the lz4k files..."
-          cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-          cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-          cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-          cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+          
+          if [ "${{ inputs.susfs }}" == "true" ]; then
+            cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
+            cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+            cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+            cp ../kernel_patches/sukisu/scope_min_manual_hooks_v1.9.patch ./common/
+          fi
+          
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
+            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
+            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
+            cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+          fi
+          
           cd ./common
-          echo "Apply lz4kd patches..."
-          cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4kd.patch ./
-          patch -p1 -F 3 < lz4kd.patch || true
-          cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4k_oplus.patch ./
-          patch -p1 -F 3 < lz4k_oplus.patch || true
-          
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> ./arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ZRAM_WRITEBACK=y" >> ./arch/arm64/configs/gki_defconfig
-          
-          echo "Done"
 
-      - name: Setup KSU
-        if: ${{ inputs.ksu }}
-        run: |
-          cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-          
-          cd KernelSU
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          COMMIT_DATE=$(git log -1 --format=%cd --date=short)
-          BRANCH_OR_TAG=$(git describe --tags 2>/dev/null || git branch --show-current)
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4kd.patch ./
+            patch -p1 -F 3 < lz4kd.patch || true
+            cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4k_oplus.patch ./
+            patch -p1 -F 3 < lz4k_oplus.patch || true
+          fi
 
-          echo "=== KernelSU Version Information ==="
-          echo "版本: $BRANCH_OR_TAG"
-          echo "Commit Hash: $COMMIT_HASH"
-          echo "Commit Date: $COMMIT_DATE"
-
-      - name: Add iptables extensions
-        if: ${{ inputs.better_net }}
-        run: |
-          cd kernel_workspace/kernel_platform/common
-          {
-            echo "CONFIG_BPF_STREAM_PARSER=y"
-            echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y"
-            echo "CONFIG_NETFILTER_XT_SET=y"
-            echo "CONFIG_IP_SET=y"
-            echo "CONFIG_IP_SET_MAX=65534"
-            echo "CONFIG_IP_SET_BITMAP_IP=y"
-            echo "CONFIG_IP_SET_BITMAP_IPMAC=y"
-            echo "CONFIG_IP_SET_BITMAP_PORT=y"
-            echo "CONFIG_IP_SET_HASH_IP=y"
-            echo "CONFIG_IP_SET_HASH_IPMARK=y"
-            echo "CONFIG_IP_SET_HASH_IPPORT=y"
-            echo "CONFIG_IP_SET_HASH_IPPORTIP=y"
-            echo "CONFIG_IP_SET_HASH_IPPORTNET=y"
-            echo "CONFIG_IP_SET_HASH_IPMAC=y"
-            echo "CONFIG_IP_SET_HASH_MAC=y"
-            echo "CONFIG_IP_SET_HASH_NETPORTNET=y"
-            echo "CONFIG_IP_SET_HASH_NET=y"
-            echo "CONFIG_IP_SET_HASH_NETNET=y"
-            echo "CONFIG_IP_SET_HASH_NETPORT=y"
-            echo "CONFIG_IP_SET_HASH_NETIFACE=y"
-            echo "CONFIG_IP_SET_LIST_SET=y"
-            echo "CONFIG_IP6_NF_NAT=y"
-            echo "CONFIG_IP6_NF_TARGET_MASQUERADE=y"
-          } >> ./arch/arm64/configs/gki_defconfig
+          if [ "${{ inputs.susfs }}" == "true" ]; then
+            patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
+          elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+            patch -p1 -F 3 < scope_min_manual_hooks_v1.9.patch
+          fi
 
       - name: Setup Baseband-guard
-        if: ${{ inputs.baseband_guard }}
+        if: ${{ inputs.baseband_guard && inputs.kpm == false && inputs.ksu_type != 'none' }}
         run: |
           cd kernel_workspace/kernel_platform/common
-          curl -LSs "https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh" | bash
-          echo "CONFIG_BBG=y" >> ./arch/arm64/configs/gki_defconfig
-          sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' security/Kconfig
+          curl -sSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh -o setup.sh
+          bash setup.sh
 
-      - name: Setup ADIOS IO
-        if: ${{ inputs.adios }}
+      - name: Configure Kernel Options
         run: |
           cd kernel_workspace/kernel_platform/common
-          echo "CONFIG_MQ_IOSCHED_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
-          echo "CONFIG_MQ_IOSCHED_DEFAULT_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
+
+          if [ "${{ inputs.ksu_type }}" == "resukisu" ] || [ "${{ inputs.ksu_type }}" == "Official" ]; then
+            echo "CONFIG_KSU=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_MULTI_MANAGER_SUPPORT=y" >> ./arch/arm64/configs/gki_defconfig
+            
+            if [ "${{ inputs.kpm }}" == "true" ]; then
+              echo "CONFIG_KPM=y" >> ./arch/arm64/configs/gki_defconfig
+            fi
+            
+            if [ "${{ inputs.susfs }}" == "true" ]; then
+              echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./arch/arm64/configs/gki_defconfig
+            elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+              echo "CONFIG_KSU_SUSFS=n" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/gki_defconfig
+            fi
+          fi
+          
+          echo "CONFIG_TMPFS_XATTR=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./arch/arm64/configs/gki_defconfig
+
+          if [ "${{ inputs.baseband_guard }}" == "true" ] && [ "${{ inputs.kpm }}" == "false" ] && [ "${{ inputs.ksu_type }}" != "none" ]; then
+            echo 'CONFIG_BBG=y' >> ./arch/arm64/configs/gki_defconfig
+            echo 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor,bpf,baseband_guard"' >> ./arch/arm64/configs/gki_defconfig
+          fi          
+          
+          if [ "${{ inputs.bbr }}" == "true" ]; then
+            echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_BBR=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_NET_SCH_FQ=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_BIC=n" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_WESTWOOD=n" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_HTCP=n" >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          if [ "${{ inputs.adios }}" == "true" ]; then
+            echo "CONFIG_MQ_IOSCHED_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_MQ_IOSCHED_DEFAULT_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
 
       - name: Other tasks
         run: |
           cd kernel_workspace/kernel_platform/common
-          # 启用TMPFS
-          echo "CONFIG_TMPFS_XATTR=y" >> ./arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./arch/arm64/configs/gki_defconfig
-          # 设置 LTO 以防止爆炸
           sed -i 's/^CONFIG_LTO=n/CONFIG_LTO=y/' ./arch/arm64/configs/gki_defconfig
           sed -i 's/^CONFIG_LTO_CLANG_FULL=y/CONFIG_LTO_CLANG_THIN=y/' ./arch/arm64/configs/gki_defconfig
           sed -i 's/^CONFIG_LTO_CLANG_NONE=y/CONFIG_LTO_CLANG_THIN=y/' ./arch/arm64/configs/gki_defconfig
           grep -q '^CONFIG_LTO_CLANG_THIN=y' ./arch/arm64/configs/gki_defconfig || echo 'CONFIG_LTO_CLANG_THIN=y' >> ./arch/arm64/configs/gki_defconfig
-          # 跳过将 uapi 标准头安装到 usr/include 目录的不必要操作，节省编译时间
           echo "CONFIG_HEADERS_INSTALL=n" >> ./arch/arm64/configs/gki_defconfig
-          # 开启 O2 编译优化配置
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./arch/arm64/configs/gki_defconfig
-          # 禁用 defconfig 检查
           sed -i 's/check_defconfig//' ./build.config.gki
 
       - name: Rename make name
@@ -261,14 +279,6 @@ jobs:
           sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
             s/local oki_infix=o/local oki_infix=Mortis/
           }' ./common/scripts/setlocalversion
-          
-      - name: Fix-ZWSP-ByPass
-        if: ${{ inputs.fzbp }}
-        run: |
-          cd kernel_workspace/kernel_platform
-          echo "Fix ZWSP-ByPass (experimental)"
-          wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/Patches/ZWSP_ByPass/5.10-A12.patch
-          patch -p0 < 5.10-A12.patch
 
       - name: Build Kernel
         run: |
@@ -277,9 +287,7 @@ jobs:
           sudo apt install libelf-dev
           cd kernel_workspace/kernel_platform/common
           make -j$(nproc --all) LLVM_IAS=1 LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out gki_defconfig all
-
           ccache -s
-          echo "Kernel compilation completed."
 
       - name: Make AnyKernel3
         run: |
@@ -290,14 +298,21 @@ jobs:
           if [ -z "$image_path" ]; then
             image_path=$(find "./kernel_workspace/kernel_platform/out/" -name "Image" | head -n 1)
           fi
-          if [ -n "$image_path" ] && [ -f "$image_path" ]; then
+          if [ -n "$image_path" ]; then
             cp "$image_path" ./AnyKernel3/Image
             cp "$image_path" kernel_workspace/kernel_platform/out/Final-Image-Find/Image
-          else
-            echo "Image not found"
-            exit 1
           fi
     
+      - name: Patch Kernel Image (KPM)
+        if: ${{ inputs.kpm }}
+        run: |
+          cd kernel_workspace/kernel_platform/out/Final-Image-Find
+          curl -LO https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/download/0.12.2/patch_linux
+          chmod +x patch_linux
+          ./patch_linux
+          mv oImage Image
+          cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
+
       - name: Extract Linux Version from Image
         run: |
           IMAGE_PATH="./AnyKernel3/Image"
@@ -307,7 +322,7 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}
+          name: Ace2_${{ inputs.ksu_type == 'none' && '' || inputs.ksu_type }}${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}
           path: ./AnyKernel3/*
           
       - name: Get bot script
@@ -319,11 +334,17 @@ jobs:
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd AnyKernel3
-            zip -q -r "../Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}.zip" ./*
+            FEATURE_SUFFIX="${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}"
+            KSU_TYPE="${{ inputs.ksu_type }}"
+            if [ "$KSU_TYPE" == "none" ]; then
+              FILENAME_PREFIX="Ace2"
+            else
+              FILENAME_PREFIX="Ace2_${KSU_TYPE}"
+            fi
+            zip -q -r "../${FILENAME_PREFIX}${FEATURE_SUFFIX}.zip" ./*
             cd ..
             pip3 install telethon
-            python3 ./bot/Tools/buildbot.py "./Ace2_AK3${{ inputs.ksu && '_KSU' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}.zip"
-            echo "The file has been uploaded to Telegram."
+            python3 ./bot/Tools/buildbot.py "./${FILENAME_PREFIX}${FEATURE_SUFFIX}.zip"
           fi
         env:
           CHATID: ${{secrets.CHATID}}
@@ -331,9 +352,11 @@ jobs:
           MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
           DEVICE: "OnePlus Ace 2"
           KERNEL_VERSION: ${{ env.KERNEL_VERSION }}
-          KSU: ${{ inputs.ksu }}
+          KSU_TYPE: ${{ inputs.ksu_type }}
+          SUSFS: ${{ inputs.susfs }}
+          KPM: ${{ inputs.kpm }}
           BETTER_NET: ${{ inputs.better_net }}
           BASEBAND_GUARD: ${{ inputs.baseband_guard }}
           LZ4KD: ${{ inputs.lz4kd }}
           ADIOS: ${{ inputs.adios }}
-          FZBP: ${{ inputs.fzbp }}
+          BBR: ${{ inputs.bbr }}

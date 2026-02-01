@@ -13,14 +13,14 @@ MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 DEVICE = os.environ.get("DEVICE")
 KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
 
-# 从环境变量获取特性标志
-KSU = os.environ.get("KSU", "").lower() == "true"
+KSU_TYPE = os.environ.get("KSU_TYPE", "none")
+SUSFS = os.environ.get("SUSFS", "").lower() == "true"
+KPM = os.environ.get("KPM", "").lower() == "true"
 BETTER_NET = os.environ.get("BETTER_NET", "").lower() == "true"
 BASEBAND_GUARD = os.environ.get("BASEBAND_GUARD", "").lower() == "true"
 LZ4KD = os.environ.get("LZ4KD", "").lower() == "true"
-HYMOFS = os.environ.get("HYMOFS", "").lower() == "true"
 ADIOS = os.environ.get("ADIOS", "").lower() == "true"
-FZBP = os.environ.get("FZBP", "").lower() == "true"
+BBR = os.environ.get("BBR", "").lower() == "true"
 
 def check_environ():
     global CHAT_ID, MESSAGE_THREAD_ID, DEVICE
@@ -44,23 +44,21 @@ def check_environ():
     else:
         MESSAGE_THREAD_ID = None
     
-    print(f"[+] Device from env: {DEVICE}")
-    print(f"[+] Kernel Version: {KERNEL_VERSION}")
-    print(f"[+] Features from env:")
-    print(f"    KSU: {KSU}")
-    print(f"    BetterNet: {BETTER_NET}")
-    print(f"    Baseband Guard: {BASEBAND_GUARD}")
-    print(f"    LZ4KD: {LZ4KD}")
-    print(f"    HymoFS: {HYMOFS}")
-    print(f"    ADIOS: {ADIOS}")
-    print(f"    FZBP: {FZBP}")
 
-def get_features_from_env():
-    """从环境变量获取特性信息"""
+def get_features():
     features = []
     
-    if KSU:
-        features.append("KernelSU")
+    if KSU_TYPE != "none":
+        if KSU_TYPE == "Official":
+            features.append("KernelSU")
+        elif KSU_TYPE == "resukisu":
+            features.append("ReSukiSU")
+    
+    if SUSFS:
+        features.append("SUSFS")
+    
+    if KPM:
+        features.append("KPM")
     
     if BETTER_NET:
         features.append("BetterNet")
@@ -71,40 +69,37 @@ def get_features_from_env():
     if LZ4KD:
         features.append("LZ4KD")
     
-    if HYMOFS:
-        features.append("HymoFS")
-    
     if ADIOS:
         features.append("ADIOS")
     
-    if FZBP:
-        features.append("Zero-width Bypass Fix")
+    if BBR:
+        features.append("BBR")
     
     return features
 
 def generate_caption(filename, features):
-    """生成包含 Linux 版本信息的消息"""
-    # 构建特性列表字符串
+    device_tag = DEVICE.lower().replace(" ", "")
+    version_display = KERNEL_VERSION
+    
+    tags = f"#oki #{device_tag}"
+    if KSU_TYPE == "Official":
+        tags += " #ksu"
+    elif KSU_TYPE == "resukisu":
+        tags += " #resukisu"
+    
     if features:
         features_text = "\n".join([f"{feature} ✓" for feature in features])
     else:
-        features_text = "No additional features"
+        features_text = "Vanilla (No additional features)"
     
-    # 设备标签格式
-    device_tag = DEVICE.lower().replace(" ", "")
-    
-    # 使用提取的内核版本号
-    version_display = KERNEL_VERSION
-    
-    # 生成消息
     caption = f"""
 **New Build Published!**
-#oki
-#{device_tag}
+{tags}
 
 **Device:** {DEVICE}
-**Kernel:** {version_display}
-**File:** `{filename}`
+**Kernel:** 
+```{version_display}
+```
 
 **Enabled Features:**
 ```{features_text}
