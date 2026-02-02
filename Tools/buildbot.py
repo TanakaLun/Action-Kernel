@@ -12,15 +12,15 @@ CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 DEVICE = os.environ.get("DEVICE")
 KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
+KSU_TYPE = os.environ.get("KSU_TYPE", "").lower()
 
-KSU_TYPE = os.environ.get("KSU_TYPE", "none")
-SUSFS = os.environ.get("SUSFS", "").lower() == "true"
-KPM = os.environ.get("KPM", "").lower() == "true"
 BETTER_NET = os.environ.get("BETTER_NET", "").lower() == "true"
 BASEBAND_GUARD = os.environ.get("BASEBAND_GUARD", "").lower() == "true"
 LZ4KD = os.environ.get("LZ4KD", "").lower() == "true"
 ADIOS = os.environ.get("ADIOS", "").lower() == "true"
 BBR = os.environ.get("BBR", "").lower() == "true"
+KPM = os.environ.get("KPM", "").lower() == "true"
+SUSFS = os.environ.get("SUSFS", "").lower() == "true"
 
 def check_environ():
     global CHAT_ID, MESSAGE_THREAD_ID, DEVICE
@@ -44,21 +44,24 @@ def check_environ():
     else:
         MESSAGE_THREAD_ID = None
     
+    print(f"[+] Device from env: {DEVICE}")
+    print(f"[+] Kernel Version: {KERNEL_VERSION}")
+    print(f"[+] Features from env:")
+    print(f"    KSU_TYPE: {KSU_TYPE}")
+    print(f"    BetterNet: {BETTER_NET}")
+    print(f"    Baseband Guard: {BASEBAND_GUARD}")
+    print(f"    LZ4KD: {LZ4KD}")
+    print(f"    ADIOS: {ADIOS}")
+    print(f"    BBR: {BBR}")
+    print(f"    KPM: {KPM}")
+    print(f"    SUSFS: {SUSFS}")
 
-def get_features():
+def get_features_from_env():
+    """从环境变量获取特性信息"""
     features = []
     
     if KSU_TYPE != "none":
-        if KSU_TYPE == "Official":
-            features.append("KernelSU")
-        elif KSU_TYPE == "resukisu":
-            features.append("ReSukiSU")
-    
-    if SUSFS:
-        features.append("SUSFS")
-    
-    if KPM:
-        features.append("KPM")
+        features.append(f"KernelSU ({KSU_TYPE.capitalize()})")
     
     if BETTER_NET:
         features.append("BetterNet")
@@ -74,39 +77,40 @@ def get_features():
     
     if BBR:
         features.append("BBR")
+
+    if KPM:
+        features.append("KPM")
+    
+    if SUSFS:
+        features.append("SUSFS")
     
     return features
 
 def generate_caption(filename, features):
-    device_tag = DEVICE.lower().replace(" ", "")
-    version_display = KERNEL_VERSION
-    
-    tags = f"#oki #{device_tag}"
-    if KSU_TYPE == "Official":
-        tags += " #ksu"
-    elif KSU_TYPE == "resukisu":
-        tags += " #resukisu"
-    
+    """生成包含 Linux 版本信息的消息"""
     if features:
         features_text = "\n".join([f"{feature} ✓" for feature in features])
     else:
-        features_text = "Vanilla (No additional features)"
+        features_text = "No additional features"
+    
+    device_tag = DEVICE.lower().replace(" ", "")
+    
+    version_display = KERNEL_VERSION
     
     caption = f"""
 **New Build Published!**
-{tags}
+#oki
+#{device_tag}
 
 **Device:** {DEVICE}
-**Kernel:** 
-```{version_display}
-```
+**Kernel:** {version_display}
+**File:** `{filename}`
 
-**Enabled Features:**
+**Enabled Features:** 
 ```{features_text}
 ```
 """.strip()
-    
-    # 如果消息太长，截断
+
     if len(caption) > 1024:
         caption = f"""
 **New Build Published!**
@@ -135,15 +139,13 @@ async def main():
     session_dir = os.path.join(script_dir, "ksubot")
     
     async with await TelegramClient(session=session_dir, api_id=API_ID, api_hash=API_HASH).start(bot_token=BOT_TOKEN) as bot:
-        # 为每个文件生成消息
         captions = []
         for file in files:
             filename = os.path.basename(file)
-            features = get_features_from_env()  # 从环境变量获取特性
+            features = get_features_from_env()
             caption = generate_caption(filename, features)
             captions.append(caption)
         
-        # 只给最后一个文件附加完整消息
         final_captions = [""] * len(files)
         final_captions[-1] = captions[-1]
         
