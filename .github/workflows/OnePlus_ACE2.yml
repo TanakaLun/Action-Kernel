@@ -256,6 +256,34 @@ jobs:
             echo "CONFIG_MQ_IOSCHED_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_MQ_IOSCHED_DEFAULT_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
           fi
+          
+          if [ "${{ inputs.better_net }}" == "true" ]; then
+            {
+             echo "CONFIG_BPF_STREAM_PARSER=y"
+             echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y"
+             echo "CONFIG_NETFILTER_XT_SET=y"
+             echo "CONFIG_IP_SET=y"
+             echo "CONFIG_IP_SET_MAX=65534"
+             echo "CONFIG_IP_SET_BITMAP_IP=y"
+             echo "CONFIG_IP_SET_BITMAP_IPMAC=y"
+             echo "CONFIG_IP_SET_BITMAP_PORT=y"
+             echo "CONFIG_IP_SET_HASH_IP=y"
+             echo "CONFIG_IP_SET_HASH_IPMARK=y"
+             echo "CONFIG_IP_SET_HASH_IPPORT=y"
+             echo "CONFIG_IP_SET_HASH_IPPORTIP=y"
+             echo "CONFIG_IP_SET_HASH_IPPORTNET=y"
+             echo "CONFIG_IP_SET_HASH_IPMAC=y"
+             echo "CONFIG_IP_SET_HASH_MAC=y"
+             echo "CONFIG_IP_SET_HASH_NETPORTNET=y"
+             echo "CONFIG_IP_SET_HASH_NET=y"
+             echo "CONFIG_IP_SET_HASH_NETNET=y"
+             echo "CONFIG_IP_SET_HASH_NETPORT=y"
+             echo "CONFIG_IP_SET_HASH_NETIFACE=y"
+             echo "CONFIG_IP_SET_LIST_SET=y"
+             echo "CONFIG_IP6_NF_NAT=y"
+             echo "CONFIG_IP6_NF_TARGET_MASQUERADE=y"
+            } >> ./arch/arm64/configs/gki_defconfig
+          fi
 
       - name: Other tasks
         run: |
