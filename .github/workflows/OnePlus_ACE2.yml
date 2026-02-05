@@ -20,6 +20,15 @@ on:
           - 'Official'
           - 'resukisu'
         default: 'none'
+      mount:
+        description: "自定义挂载方法"
+        required: true
+        type: choice
+        options:
+          - 'Default'
+          - 'ZeroMount'
+          - 'HymoFS'
+        default: 'Default'
       susfs:
         description: "启用SUSFS"
         required: false
@@ -149,7 +158,13 @@ jobs:
             ./resukisu_setup.bin
             rm -f resukisu_setup.bin
           fi
-
+      
+      - name: "Apply HymoFS Patch"
+        if: ${{ inputs.mount = HymoFS }}
+        run: |
+          cd kernel_workspace/kernel_platform/
+          curl -LSs https://raw.githubusercontent.com/Anatdx/HymoFS/main/setup.sh | bash -s defconfig ./common/arch/arm64/configs/gki_defconfig
+      
       - name: Setup Patches
         if: ${{ inputs.ksu_type != 'none' || inputs.susfs || inputs.lz4kd }}
         run: |
@@ -282,6 +297,21 @@ jobs:
              echo "CONFIG_IP_SET_LIST_SET=y"
              echo "CONFIG_IP6_NF_NAT=y"
              echo "CONFIG_IP6_NF_TARGET_MASQUERADE=y"
+            } >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          if [ "${{ inputs.mount }}" == "HymoFS" ]; then
+            {
+             echo "CONFIG_HYMOFS=y"
+             echo "CONFIG_HYMOFS_REVERSE_LOOKUP=y"
+             echo "CONFIG_HYMOFS_FORWARD_REDIRECT=y"
+             echo "CONFIG_HYMOFS_HIDE_ENTRIES=y"
+             echo "CONFIG_HYMOFS_INJECT_ENTRIES=y"
+             echo "CONFIG_HYMOFS_STAT_SPOOF=y"
+             echo "CONFIG_HYMOFS_XATTR_FILTER=y"
+             echo "CONFIG_HYMOFS_UNAME_SPOOF=y"
+             echo "CONFIG_HYMOFS_CMDLINE_SPOOF=y"
+             echo "CONFIG_HYMOFS_DEBUG=y"
             } >> ./arch/arm64/configs/gki_defconfig
           fi
 
