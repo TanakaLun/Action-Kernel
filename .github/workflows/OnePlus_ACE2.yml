@@ -19,6 +19,7 @@ on:
           - 'none'
           - 'Official'
           - 'ReSukiSU'
+          - 'MKSU'
         default: 'none'
       mount_type:
         description: "自定义挂载方法"
@@ -54,8 +55,8 @@ on:
         required: false
         type: boolean
         default: false
-      adios:
-        description: "启用ADIOS IO算法"
+      ssg:
+        description: "启用SSG IO算法"
         required: false
         type: boolean
         default: false
@@ -149,7 +150,9 @@ jobs:
           cd kernel_workspace/kernel_platform
           
           if [ "${{ inputs.ksu_type }}" == "Official" ]; then          
-            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
+          elif [ "${{ inputs.ksu_type }}" == "MKSU" ]; then
+            curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
             cd KernelSU
@@ -267,9 +270,9 @@ jobs:
             echo "CONFIG_ZRAM_WRITEBACK=y" >> ./arch/arm64/configs/gki_defconfig
           fi
           
-          if [ "${{ inputs.adios }}" == "true" ]; then
-            echo "CONFIG_MQ_IOSCHED_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
-            echo "CONFIG_MQ_IOSCHED_DEFAULT_ADIOS=y" >> ./arch/arm64/configs/gki_defconfig
+          if [ "${{ inputs.ssg }}" == "true" ]; then
+            echo "CONFIG_MQ_IOSCHED_SSG=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_MQ_IOSCHED_SSG_CGROUP=y" >> ./arch/arm64/configs/gki_defconfig
           fi
           
           if [ "${{ inputs.better_net }}" == "true" ]; then
