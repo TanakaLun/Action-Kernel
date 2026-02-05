@@ -405,7 +405,7 @@ jobs:
             zip -q -r "../${FILENAME_PREFIX}${FEATURE_SUFFIX}.zip" ./*
             cd ..
             pip3 install telethon
-            python3 ./bot/Tools/buildbot.py "./${FILENAME_PREFIX}${FEATURE_SUFFIX}.zip"
+            python3 ./bot/Tools/bot.py "./${FILENAME_PREFIX}${FEATURE_SUFFIX}.zip"
           fi
         env:
           CHATID: ${{secrets.CHATID}}
@@ -419,6 +419,6 @@ jobs:
           BETTER_NET: ${{ inputs.better_net }}
           BASEBAND_GUARD: ${{ inputs.baseband_guard }}
           LZ4KD: ${{ inputs.lz4kd }}
-          ADIOS: ${{ inputs.adios }}
+          SSG: ${{ inputs.ssg }}
           BBR: ${{ inputs.bbr }}
           MOUNT_TYPE: ${{ inputs.mount_type }}

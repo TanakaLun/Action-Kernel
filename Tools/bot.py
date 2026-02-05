@@ -16,7 +16,7 @@ KSU_TYPE = os.environ.get("KSU_TYPE", "").lower()
 BETTER_NET = os.environ.get("BETTER_NET", "").lower() == "true"
 BASEBAND_GUARD = os.environ.get("BASEBAND_GUARD", "").lower() == "true"
 LZ4KD = os.environ.get("LZ4KD", "").lower() == "true"
-ADIOS = os.environ.get("ADIOS", "").lower() == "true"
+SSG = os.environ.get("SSG", "").lower() == "true"
 BBR = os.environ.get("BBR", "").lower() == "true"
 KPM = os.environ.get("KPM", "").lower() == "true"
 SUSFS = os.environ.get("SUSFS", "").lower() == "true"
@@ -51,7 +51,7 @@ def check_environ():
     print(f"    BetterNet: {BETTER_NET}")
     print(f"    Baseband Guard: {BASEBAND_GUARD}")
     print(f"    LZ4KD: {LZ4KD}")
-    print(f"    ADIOS: {ADIOS}")
+    print(f"    SSG: {SSG}")
     print(f"    BBR: {BBR}")
     print(f"    KPM: {KPM}")
     print(f"    SUSFS: {SUSFS}")
@@ -74,7 +74,7 @@ def get_features_from_env():
         features.append("LZ4KD")
     
     if ADIOS:
-        features.append("ADIOS")
+        features.append("SSG IO")
     
     if BBR:
         features.append("BBR")
