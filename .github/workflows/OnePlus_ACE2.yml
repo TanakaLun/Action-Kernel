@@ -18,9 +18,9 @@ on:
         options:
           - 'none'
           - 'Official'
-          - 'resukisu'
+          - 'ReSukiSU'
         default: 'none'
-      mount:
+      mount_type:
         description: "自定义挂载方法"
         required: true
         type: choice
@@ -150,7 +150,7 @@ jobs:
           
           if [ "${{ inputs.ksu_type }}" == "Official" ]; then          
             curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-          elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
             cd KernelSU
             curl -L -o resukisu_setup.bin https://github.com/Xiaomichael/OnePlus-Actions/raw/Build/script/resukisu_setup.bin
@@ -160,7 +160,7 @@ jobs:
           fi
       
       - name: "Apply HymoFS Patch"
-        if: ${{ inputs.mount == 'HymoFS' }}
+        if: ${{ inputs.mount_type == 'HymoFS' }}
         run: |
           cd kernel_workspace/kernel_platform/
           curl -LSs https://raw.githubusercontent.com/Anatdx/HymoFS/main/setup.sh | bash -s defconfig ./common/arch/arm64/configs/gki_defconfig
@@ -182,7 +182,7 @@ jobs:
             cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
             cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
             cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             cp ../kernel_patches/sukisu/scope_min_manual_hooks_v1.9.patch ./common/
           fi
           
@@ -204,7 +204,7 @@ jobs:
 
           if [ "${{ inputs.susfs }}" == "true" ]; then
             patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-          elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             patch -p1 -F 3 < scope_min_manual_hooks_v1.9.patch
           fi
 
@@ -219,7 +219,7 @@ jobs:
         run: |
           cd kernel_workspace/kernel_platform/common
 
-          if [ "${{ inputs.ksu_type }}" == "resukisu" ] || [ "${{ inputs.ksu_type }}" == "Official" ]; then
+          if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ] || [ "${{ inputs.ksu_type }}" == "Official" ]; then
             echo "CONFIG_KSU=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_MULTI_MANAGER_SUPPORT=y" >> ./arch/arm64/configs/gki_defconfig
             
@@ -238,7 +238,7 @@ jobs:
               echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./arch/arm64/configs/gki_defconfig
-            elif [ "${{ inputs.ksu_type }}" == "resukisu" ]; then
+            elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
               echo "CONFIG_KSU_SUSFS=n" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/gki_defconfig
             fi
@@ -300,7 +300,7 @@ jobs:
             } >> ./arch/arm64/configs/gki_defconfig
           fi
           
-          if [ "${{ inputs.mount }}" == "HymoFS" ]; then
+          if [ "${{ inputs.mount_type }}" == "HymoFS" ]; then
             {
              echo "CONFIG_HYMOFS=y"
              echo "CONFIG_HYMOFS_REVERSE_LOOKUP=y"
@@ -418,3 +418,4 @@ jobs:
           LZ4KD: ${{ inputs.lz4kd }}
           ADIOS: ${{ inputs.adios }}
           BBR: ${{ inputs.bbr }}
+          MOUNT_TYPE: ${{ inputs.mount_type }}
