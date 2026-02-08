@@ -12,7 +12,7 @@ CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 DEVICE = os.environ.get("DEVICE")
 KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
-KSU_TYPE = os.environ.get("KSU_TYPE", "").lower()
+KSU_TYPE = os.environ.get("KSU_TYPE", "")
 BETTER_NET = os.environ.get("BETTER_NET", "").lower() == "true"
 BASEBAND_GUARD = os.environ.get("BASEBAND_GUARD", "").lower() == "true"
 LZ4KD = os.environ.get("LZ4KD", "").lower() == "true"
@@ -85,34 +85,31 @@ def get_features_from_env():
     if SUSFS:
         features.append("SUSFS")
       
-    if MOUNT_TYPE != "Default":
-        features.append(f"Mounting scheme ({MOUNT_TYPE.capitalize()})")
+    # if MOUNT_TYPE != "Default":
+        # features.append(f"Mounting scheme ({MOUNT_TYPE.capitalize()})")
     
     return features
 
 def generate_caption(filename, features):
     """生成包含 Linux 版本信息的消息"""
     if features:
-        features_text = "\n".join([f"{feature} ✓" for feature in features])
+        features_text = "\n".join([f"{feature}" for feature in features])
     else:
         features_text = "No additional features"
     
     device_tag = DEVICE.lower().replace(" ", "")
     
     version_display = KERNEL_VERSION
+    ksu_var = KSU_TYPE
     
     caption = f"""
 **New Build Published!**
-#oki
-#{device_tag}
-
-**Device:** {DEVICE}
-**Kernel:** 
-```{version_display}
-```
-
-**Enabled Features:** 
-```{features_text}
+```INFO
+Device: {DEVICE}
+KernelName: {version_display}
+KSUVar: {ksu_var}
+Enabled Features: 
+{features_text}
 ```
 """.strip()
 
