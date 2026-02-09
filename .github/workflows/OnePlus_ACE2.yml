@@ -154,7 +154,7 @@ jobs:
           elif [ "${{ inputs.ksu_type }}" == "MKSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
-            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
+            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
             cd KernelSU
             curl -L -o resukisu_setup.bin https://github.com/Xiaomichael/OnePlus-Actions/raw/Build/script/resukisu_setup.bin
             chmod +x resukisu_setup.bin
@@ -226,7 +226,7 @@ jobs:
             echo "CONFIG_KSU=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_MULTI_MANAGER_SUPPORT=y" >> ./arch/arm64/configs/gki_defconfig
             
-            if [ "${{ inputs.kpm }}" == "true" ]; then
+            if [ "${{ inputs.kpm }}" == "true" ] && [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
               echo "CONFIG_KPM=y" >> ./arch/arm64/configs/gki_defconfig
             fi
             
@@ -241,7 +241,7 @@ jobs:
               echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./arch/arm64/configs/gki_defconfig
-            elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+            elif [ "${{ inputs.susfs }}" == "false" ] && [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
               echo "CONFIG_KSU_SUSFS=n" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/gki_defconfig
             fi
