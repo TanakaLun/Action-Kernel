@@ -99,8 +99,6 @@ def generate_caption(filename, features):
     caption = f"""
 **New Build Published!**
 #oki
-#{device_tag}
-
 **Device:** {DEVICE}
 **Kernel:** 
 ```{version_display}

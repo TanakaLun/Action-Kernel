@@ -3,6 +3,11 @@ name: OnePlus Ace2 Kernel Build
 on:
   workflow_dispatch:
     inputs:
+      kname:
+        description: "改变内核名称"
+        required: true
+        type: string
+        default: 'Mortis'
       source:
         description: "源码来源"
         required: true
@@ -95,7 +100,7 @@ jobs:
 
       - name: Restore ccache (With SUSFS)
         if: ${{ inputs.susfs }}
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-kernel-susfs
@@ -104,7 +109,7 @@ jobs:
 
       - name: Restore ccache (Without SUSFS)
         if: ${{ !inputs.susfs }}
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-kernel-nosusfs
@@ -318,7 +323,7 @@ jobs:
           sed -i '$s/echo "$res"/echo "-android12-9$res"/' ./common/scripts/setlocalversion ./msm-kernel/scripts/setlocalversion
           
           sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
-            s/local oki_infix=o/local oki_infix=Mortis/
+            s/local oki_infix=o/local oki_infix=${{ inputs.kname }}/
           }' ./common/scripts/setlocalversion
 
       - name: Build Kernel
