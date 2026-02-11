@@ -12,7 +12,7 @@ CHAT_ID = os.environ.get("CHATID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 DEVICE = os.environ.get("DEVICE")
 KERNEL_VERSION = os.environ.get("KERNEL_VERSION", "")
-KSU_TYPE = os.environ.get("KSU_TYPE", "")
+KSU_TYPE = os.environ.get("KSU_TYPE", "").lower()
 BETTER_NET = os.environ.get("BETTER_NET", "").lower() == "true"
 BASEBAND_GUARD = os.environ.get("BASEBAND_GUARD", "").lower() == "true"
 LZ4KD = os.environ.get("LZ4KD", "").lower() == "true"
@@ -20,7 +20,6 @@ SSG = os.environ.get("SSG", "").lower() == "true"
 BBR = os.environ.get("BBR", "").lower() == "true"
 KPM = os.environ.get("KPM", "").lower() == "true"
 SUSFS = os.environ.get("SUSFS", "").lower() == "true"
-MOUNT_TYPE = os.environ.get("MOUNT_TYPE", "").lower()
 
 def check_environ():
     global CHAT_ID, MESSAGE_THREAD_ID, DEVICE
@@ -55,7 +54,6 @@ def check_environ():
     print(f"    BBR: {BBR}")
     print(f"    KPM: {KPM}")
     print(f"    SUSFS: {SUSFS}")
-    print(f"    MOUNT_TYPE: {MOUNT_TYPE}")
 
 def get_features_from_env():
     """从环境变量获取特性信息"""
@@ -73,7 +71,7 @@ def get_features_from_env():
     if LZ4KD:
         features.append("LZ4KD")
     
-    if SSG:
+    if ADIOS:
         features.append("SSG IO")
     
     if BBR:
@@ -84,32 +82,32 @@ def get_features_from_env():
     
     if SUSFS:
         features.append("SUSFS")
-      
-    # if MOUNT_TYPE != "Default":
-        # features.append(f"Mounting scheme ({MOUNT_TYPE.capitalize()})")
     
     return features
 
 def generate_caption(filename, features):
     """生成包含 Linux 版本信息的消息"""
     if features:
-        features_text = "\n".join([f"{feature}" for feature in features])
+        features_text = "\n".join([f"{feature} ✓" for feature in features])
     else:
         features_text = "No additional features"
     
-    device_tag = DEVICE.lower().replace(" ", "")
+    device_tag = DEVICE
     
     version_display = KERNEL_VERSION
-    ksu_var = KSU_TYPE
     
     caption = f"""
 **New Build Published!**
-```INFO
-Device: {DEVICE}
-KernelName: {version_display}
-KSUVar: {ksu_var}
-Enabled Features: 
-{features_text}
+#oki
+#{device_tag}
+
+**Device:** {DEVICE}
+**Kernel:** 
+```{version_display}
+```
+
+**Enabled Features:** 
+```{features_text}
 ```
 """.strip()
 
