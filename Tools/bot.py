@@ -71,7 +71,7 @@ def get_features_from_env():
     if LZ4KD:
         features.append("LZ4KD")
     
-    if ADIOS:
+    if SSG:
         features.append("SSG IO")
     
     if BBR:
