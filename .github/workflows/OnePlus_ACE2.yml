@@ -194,10 +194,10 @@ jobs:
               patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             else
               cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
-              cp ../../susfs4ksu/kernel_patches/fs/* ./fs/
-              cp ../../susfs4ksu/kernel_patches/include/linux/* ./include/linux/
               patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             fi
+            cp ../../susfs4ksu/kernel_patches/fs/* ./fs/
+            cp ../../susfs4ksu/kernel_patches/include/linux/* ./include/linux/
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             cp ../../kernel_patches/sukisu/scope_min_manual_hooks_v1.9.patch ./
             patch -p1 -F 3 < scope_min_manual_hooks_v1.9.patch
