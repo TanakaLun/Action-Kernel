@@ -225,7 +225,7 @@ jobs:
             if [ "${{ inputs.susfs }}" == "true" ]; then
               if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
                 echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/gki_defconfig
-              if
+              fi
               echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./arch/arm64/configs/gki_defconfig
