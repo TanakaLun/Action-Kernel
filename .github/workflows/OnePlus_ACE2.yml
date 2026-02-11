@@ -147,6 +147,10 @@ jobs:
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
             cd KernelSU
+            if [ "${{ inputs.susfs }}" == "true" ]; then
+              git revert e16cf610855b73fd248d9e3609cd993ec667de02 --no-edit
+              cd ..
+            fi
             curl -L -o resukisu_setup.bin https://github.com/Xiaomichael/OnePlus-Actions/raw/Build/script/resukisu_setup.bin
             chmod +x resukisu_setup.bin
             ./resukisu_setup.bin
@@ -166,11 +170,7 @@ jobs:
           
           cd kernel_platform
           
-          if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ] && [ "${{ inputs.susfs }}" == "true" ]; then
-            cd KernelSU
-            git revert e16cf610855b73fd248d9e3609cd993ec667de02 --no-edit
-            cd ..
-          fi
+          
           
           if [ "${{ inputs.lz4kd }}" == "true" ]; then
             cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
@@ -190,7 +190,7 @@ jobs:
 
           if [ "${{ inputs.susfs }}" == "true" ]; then
             if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
-              wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/50e4c35aa2e03e67ad2f045f8fc4ee2098c0b60c/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch
+              wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/ae24f540d87cba81e92f15a50a6ef1402d28df03/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch
               patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             else
               cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
