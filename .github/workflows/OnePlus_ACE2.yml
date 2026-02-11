@@ -190,7 +190,7 @@ jobs:
 
           if [ "${{ inputs.susfs }}" == "true" ]; then
             if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
-              wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/ae24f540d87cba81e92f15a50a6ef1402d28df03/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch
+              wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/50e4c35aa2e03e67ad2f045f8fc4ee2098c0b60c/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch
               patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             else
               cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
