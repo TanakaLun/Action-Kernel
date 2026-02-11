@@ -151,10 +151,10 @@ jobs:
               git revert e16cf610855b73fd248d9e3609cd993ec667de02 --no-edit
               cd ..
             fi
-            curl -L -o resukisu_setup.bin https://github.com/Xiaomichael/OnePlus-Actions/raw/Build/script/resukisu_setup.bin
-            chmod +x resukisu_setup.bin
-            ./resukisu_setup.bin
-            rm -f resukisu_setup.bin
+            # curl -L -o resukisu_setup.bin https://github.com/Xiaomichael/OnePlus-Actions/raw/Build/script/resukisu_setup.bin
+            # chmod +x resukisu_setup.bin
+            # ./resukisu_setup.bin
+            # rm -f resukisu_setup.bin
           fi
       
       - name: Setup Patches
@@ -223,6 +223,9 @@ jobs:
             fi
             
             if [ "${{ inputs.susfs }}" == "true" ]; then
+              if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+                echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/gki_defconfig
+              else
               echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./arch/arm64/configs/gki_defconfig
               echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./arch/arm64/configs/gki_defconfig
