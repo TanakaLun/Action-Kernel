@@ -152,11 +152,6 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
-            cd KernelSU
-            # if [ "${{ inputs.susfs }}" == "true" ]; then
-              # git revert e16cf610855b73fd248d9e3609cd993ec667de02 --no-edit
-              # cd ..
-            # fi
           elif [ "${{ inputs.ksu_type }}" == "MamboSU" ]; then
             if [ "${{ inputs.susfs }}" == "true" ]; then
               curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/susfs-rksu-master/kernel/setup.sh" | bash -s susfs-rksu-master
@@ -200,11 +195,7 @@ jobs:
           fi
 
           if [ "${{ inputs.susfs }}" == "true" ]; then
-            # if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
-              # wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/d410963cbdcd1856ea6a913bae9960f5210886b7/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch
-            # else
-              cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
-            # fi
+            cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
             patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             cp ../../susfs4ksu/kernel_patches/fs/* ./fs/
             cp ../../susfs4ksu/kernel_patches/include/linux/* ./include/linux/
