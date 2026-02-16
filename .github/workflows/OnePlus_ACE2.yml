@@ -170,11 +170,14 @@ jobs:
         run: |
           cd kernel_workspace
 
-          if [ "${{ inputs.susfs }}" == "true" ]; then          
+          if [ "${{ inputs.susfs }}" == "true" ]; then
             git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+            git clone https://github.com/Xiaomichael/kernel_patches.git
           fi
-          git clone https://github.com/Xiaomichael/kernel_patches.git
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          fi
           
           cd kernel_platform
           
@@ -199,11 +202,10 @@ jobs:
           if [ "${{ inputs.susfs }}" == "true" ]; then
             # if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
               # wget https://gitlab.com/simonpunk/susfs4ksu/-/raw/d410963cbdcd1856ea6a913bae9960f5210886b7/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch
-              # patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             # else
               cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
-              patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-            fi
+            # fi
+            patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             cp ../../susfs4ksu/kernel_patches/fs/* ./fs/
             cp ../../susfs4ksu/kernel_patches/include/linux/* ./include/linux/
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
