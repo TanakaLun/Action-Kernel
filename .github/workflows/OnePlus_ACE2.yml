@@ -25,6 +25,7 @@ on:
           - 'Official'
           - 'ReSukiSU'
           - 'MKSU'
+          - 'MamboSU'
         default: 'none'
       susfs:
         description: "启用SUSFS"
@@ -155,6 +156,12 @@ jobs:
             if [ "${{ inputs.susfs }}" == "true" ]; then
               git revert e16cf610855b73fd248d9e3609cd993ec667de02 --no-edit
               cd ..
+            fi
+          elif [ "${{ inputs.ksu_type }}" == "MamboSU" ]; then
+            if [ "${{ inputs.susfs }}" == "true" ]; then
+              curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/susfs-rksu-master/kernel/setup.sh" | bash -s susfs-rksu-master
+            else
+              curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s master
             fi
             # curl -L -o resukisu_setup.bin https://github.com/Xiaomichael/OnePlus-Actions/raw/Build/script/resukisu_setup.bin
             # chmod +x resukisu_setup.bin

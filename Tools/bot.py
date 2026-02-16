@@ -103,7 +103,6 @@ def generate_caption(filename, features):
 **Kernel:** 
 ```{version_display}
 ```
-
 **Enabled Features:** 
 ```{features_text}
 ```
