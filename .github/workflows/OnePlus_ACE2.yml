@@ -27,6 +27,11 @@ on:
           - 'MKSU'
           - 'MamboSU'
         default: 'none'
+      branchs:
+        description: "KSU分支选择"
+        required: true
+        type: string
+        default: 'main'
       susfs:
         description: "启用SUSFS"
         required: false
@@ -147,11 +152,11 @@ jobs:
           cd kernel_workspace/kernel_platform
           
           if [ "${{ inputs.ksu_type }}" == "Official" ]; then          
-            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s ${{ inputs.branchs }}
           elif [ "${{ inputs.ksu_type }}" == "MKSU" ]; then
-            curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+            curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s ${{ inputs.branchs }}
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
-            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
+            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s ${{ inputs.branchs }}
             cd KernelSU
             # if [ "${{ inputs.susfs }}" == "true" ]; then
               # git revert e16cf610855b73fd248d9e3609cd993ec667de02 --no-edit
