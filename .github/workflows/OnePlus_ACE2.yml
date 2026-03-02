@@ -32,6 +32,14 @@ on:
         required: false
         type: boolean
         default: false
+      sus_branch:
+        descripiton: "SUS来源"
+        required: true
+        type: choice
+        options:
+          - '西蒙庞克'
+          - 'susfs4oki'
+        default: 'susfs4oki'
       kpm:
         description: "启用KPM"
         required: false
@@ -319,6 +327,12 @@ jobs:
             s/local oki_infix=o/local oki_infix=${{ inputs.kname }}/
           }' ./common/scripts/setlocalversion
 
+      - name: Upload Kernel Code
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ace2_C16
+          path: ./kernel_workspace/kernel_platform/*
+          
       - name: Build Kernel
         run: |
           export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin:$PATH"
