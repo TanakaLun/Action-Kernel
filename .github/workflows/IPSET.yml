@@ -1,0 +1,82 @@
+name: Build IPSET Kernel Modules
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+        with:
+          repository: OnePlusOSS/android_kernel_oneplus_sm8475
+          ref: oneplus/sm8475_b_16.0.0_ace_2
+          path: kernel-source
+
+      - name: Install Toolchain
+        run: |
+          mkdir toolchain
+          cd toolchain
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.0/clang+llvm-15.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          tar -xf *.tar.xz
+          echo "$(pwd)/$(ls -d clang*)/bin" >> $GITHUB_PATH
+
+      - name: Set Environment Variables
+        run: |
+          echo "ARCH=arm64" >> $GITHUB_ENV
+          echo "SUBARCH=arm64" >> $GITHUB_ENV
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "LLVM=1" >> $GITHUB_ENV
+          echo "LLVM_IAS=1" >> $GITHUB_ENV
+
+      - name: Configure Kernel & Set Modules
+        working-directory: kernel-source
+        run: |
+          make O=out gki_defconfig
+          
+          scripts/config --file out/.config -e CONFIG_MODULES
+          scripts/config --file out/.config -m CONFIG_IP_SET
+          scripts/config --file out/.config -m CONFIG_IP_SET_BITMAP_IP
+          scripts/config --file out/.config -m CONFIG_IP_SET_BITMAP_IPMAC
+          scripts/config --file out/.config -m CONFIG_IP_SET_BITMAP_PORT
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_IP
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_IPMAC
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_IPMARK
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_IPPORT
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_IPPORTIP
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_IPPORTNET
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_MAC
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_NET
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_NETPORT
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_NETNET
+          scripts/config --file out/.config -m CONFIG_IP_SET_HASH_NETIFACE
+          scripts/config --file out/.config -m CONFIG_IP_SET_LIST_SET
+          scripts/config --file out/.config -m CONFIG_NETFILTER_XT_SET
+          
+          make O=out modules_prepare
+
+      - name: Build Specific Modules
+        working-directory: kernel-source
+        run: |
+          make O=out M=net/netfilter/ipset modules
+          make O=out M=net/netfilter xt_set.ko
+
+      - name: Collect and Package Modules
+        run: |
+          mkdir -p output_modules
+          find kernel-source/out/net/netfilter/ -name "*.ko" -exec cp {} output_modules/ \;
+          cat <<EOF > output_modules/load_modules.sh
+          #!/system/bin/sh
+          MOD_DIR="."
+          insmod \$MOD_DIR/ip_set.ko
+          for m in \$MOD_DIR/ip_set_hash_*.ko; do insmod \$m; done
+          insmod \$MOD_DIR/xt_set.ko
+          EOF
+          chmod +x output_modules/load_modules.sh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipset-modules-oneplus-ace2
+          path: output_modules/*
