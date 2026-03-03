@@ -47,18 +47,16 @@ jobs:
         run: |
           CLANG_BIN="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
           echo "$CLANG_BIN" >> $GITHUB_PATH
-          echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
-          echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
 
       - name: Build All Required Modules
         working-directory: kernel_workspace/kernel_platform/common
         run: |
-          K_ARGS="O=out \
+          K_ARGS=O=out \
                   ARCH=arm64 \
                   LLVM=1 \
                   LLVM_IAS=1 \
-                  CLANG_TRIPLE=${{ env.CLANG_TRIPLE }} \
-                  CROSS_COMPILE=${{ env.CROSS_COMPILE }}"
+                  CLANG_TRIPLE=aarch64-linux-gnu- \
+                  CROSS_COMPILE=aarch64-linux-android-
 
           make $K_ARGS gki_defconfig
           
