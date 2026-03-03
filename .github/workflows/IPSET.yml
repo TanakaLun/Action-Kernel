@@ -80,11 +80,14 @@ jobs:
           scripts/config --file out/.config -m CONFIG_IP_SET_HASH_NETIFACE
           scripts/config --file out/.config -m CONFIG_IP_SET_LIST_SET
           scripts/config --file out/.config -m CONFIG_NETFILTER_XT_SET
+          scripts/config --file out/.config -m CONFIG_NETFILTER_NETLINK
+          scripts/config --file out/.config -m CONFIG_NETFILTER_NETLINK_GLUE_TABLE
 
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 modules_prepare
 
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 M=net/netfilter/ipset modules
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 M=net/netfilter xt_set.ko
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 M=net/netfilter modules
 
       - name: Collect and Upload
         run: |
