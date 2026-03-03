@@ -85,6 +85,7 @@ jobs:
           
           make $K_ARGS M=net/netfilter modules
           make $K_ARGS M=net/ipv6/netfilter modules
+          make $K_ARGS M=net/core modules
           
       - name: Collect and Upload
         run: |
