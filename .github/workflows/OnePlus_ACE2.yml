@@ -24,6 +24,7 @@ on:
           - 'none'
           - 'Official'
           - 'ReSukiSU'
+          - 'ReSukiSU-Y'
           - 'MKSU'
           - 'MamboSU'
         default: 'none'
@@ -160,6 +161,8 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
           elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU-Y" ]; then
+            curl -LSs "https://raw.githubusercontent.com/TanakaLun/ReSukiSU/main/kernel/setup.sh" | bash -s main
           elif [ "${{ inputs.ksu_type }}" == "MamboSU" ]; then
             if [ "${{ inputs.susfs }}" == "true" ]; then
               curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/susfs-rksu-master/kernel/setup.sh" | bash -s susfs-rksu-master
