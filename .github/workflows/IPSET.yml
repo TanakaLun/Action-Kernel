@@ -1,6 +1,7 @@
 name: Build IPSET Kernel Modules
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
@@ -35,7 +36,7 @@ jobs:
       - name: Initialize repo and sync
         run: |
           mkdir kernel_workspace && cd kernel_workspace
-          repo init -u https://github.com/${{ inputs.source }}/kernel_manifest.git -b oneplus/sm8475 -m oneplus_ace2_b.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
+          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8475 -m oneplus_ace2_b.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
           repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
 
           for dir in kernel_platform/common kernel_platform/msm-kernel; do
