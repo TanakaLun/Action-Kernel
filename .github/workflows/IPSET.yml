@@ -43,56 +43,51 @@ jobs:
             rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || true
           done
       
-      - name: Set Toolchain Path
+            - name: Set Toolchain Path
         run: |
           CLANG_BIN="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
           echo "$CLANG_BIN" >> $GITHUB_PATH
-          echo "TOOLCHAIN_BIN=$CLANG_BIN" >> $GITHUB_ENV
-     
-      - name: Build Modules
-        working-directory: kernel_workspace/kernel_platform
-        run: |
-          export ARCH=arm64
-          export LLVM=1
-          export LLVM_IAS=1
-          export CROSS_COMPILE=aarch64-linux-android-
-          export CLANG_TRIPLE=aarch64-linux-gnu-
+          echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
 
-          cd common 
+      - name: Build All Required Modules
+        working-directory: kernel_workspace/kernel_platform/common
+        run: |
+          K_ARGS="O=out \
+                  ARCH=arm64 \
+                  LLVM=1 \
+                  LLVM_IAS=1 \
+                  CLANG_TRIPLE=${{ env.CLANG_TRIPLE }} \
+                  CROSS_COMPILE=${{ env.CROSS_COMPILE }}"
+
+          make $K_ARGS gki_defconfig
           
-          make O=out ARCH=arm64 gki_defconfig
-          
-          scripts/config --file out/.config -e CONFIG_MODULES
+          ./scripts/config --file out/.config -e CONFIG_MODULES
           
           # 核心支撑
-          scripts/config --file out/.config -m CONFIG_NETFILTER_NETLINK
-          scripts/config --file out/.config -m CONFIG_NETFILTER_NETLINK_GLUE_TABLE
+          ./scripts/config --file out/.config -m CONFIG_NETFILTER_NETLINK
+          ./scripts/config --file out/.config -m CONFIG_NETFILTER_NETLINK_GLUE_TABLE
           
           # IPSET 核心及算法
-          scripts/config --file out/.config -m CONFIG_IP_SET
-          scripts/config --file out/.config --set-val CONFIG_IP_SET_MAX 65534
+          ./scripts/config --file out/.config -m CONFIG_IP_SET
+          ./scripts/config --file out/.config --set-val CONFIG_IP_SET_MAX 65534
           for type in BITMAP_IP BITMAP_IPMAC BITMAP_PORT HASH_IP HASH_IPMARK HASH_IPPORT \
                        HASH_IPPORTIP HASH_IPPORTNET HASH_IPMAC HASH_MAC HASH_NET \
                        HASH_NETNET HASH_NETPORT HASH_NETIFACE LIST_SET; do
-            scripts/config --file out/.config -m CONFIG_IP_SET_$type
+            ./scripts/config --file out/.config -m CONFIG_IP_SET_$type
           done
           
-          # Netfilter 扩展
-          scripts/config --file out/.config -m CONFIG_NETFILTER_XT_SET
-          scripts/config --file out/.config -m CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
+          # 其他扩展
+          ./scripts/config --file out/.config -m CONFIG_NETFILTER_XT_SET
+          ./scripts/config --file out/.config -m CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
+          ./scripts/config --file out/.config -m CONFIG_IP6_NF_NAT
+          ./scripts/config --file out/.config -m CONFIG_IP6_NF_TARGET_MASQUERADE
           
-          # IPv6 NAT & Masquerade
-          scripts/config --file out/.config -m CONFIG_IP6_NF_NAT
-          scripts/config --file out/.config -m CONFIG_IP6_NF_TARGET_MASQUERADE
+          make $K_ARGS modules_prepare
           
-          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 modules_prepare
+          make $K_ARGS M=net/netfilter modules
+          make $K_ARGS M=net/ipv6/netfilter modules
           
-      - name: Build All Modules
-        working-directory: kernel_workspace/kernel_platform/common
-        run: |
-          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 M=net/netfilter modules
-          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 M=net/ipv6/netfilter modules
-
       - name: Collect and Upload
         run: |
           mkdir -p final_output
