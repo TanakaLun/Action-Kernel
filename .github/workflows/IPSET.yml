@@ -13,27 +13,31 @@ jobs:
           repository: OnePlusOSS/android_kernel_oneplus_sm8475
           ref: oneplus/sm8475_b_16.0.0_ace_2
           path: kernel-source
-
-      - name: Install Toolchain
+          
+      - name: Checkout
         run: |
-          mkdir toolchain
-          cd toolchain
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.0/clang+llvm-15.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-          tar -xf *.tar.xz
-          echo "$(pwd)/$(ls -d clang*)/bin" >> $GITHUB_PATH
-
-      - name: Set Environment Variables
+          pwd
+          ls
+          ls /kernel-source/prebuilts-master/clang/host/linux-x86/clang-r416183b
+      
+      - name: Set Toolchain Path
         run: |
-          echo "ARCH=arm64" >> $GITHUB_ENV
-          echo "SUBARCH=arm64" >> $GITHUB_ENV
-          echo "CC=clang" >> $GITHUB_ENV
-          echo "LLVM=1" >> $GITHUB_ENV
-          echo "LLVM_IAS=1" >> $GITHUB_ENV
-
-      - name: Configure Kernel & Set Modules
+          CLANG_BIN="$GITHUB_WORKSPACE/kernel-source/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
+          echo "$CLANG_BIN" >> $GITHUB_PATH
+          echo "TOOLCHAIN_BIN=$CLANG_BIN" >> $GITHUB_ENV
+     
+      - name: Build Modules
         working-directory: kernel-source
         run: |
-          make O=out gki_defconfig
+          export ARCH=arm64
+          export LLVM=1
+          export LLVM_IAS=1
+          export CROSS_COMPILE=aarch64-linux-android-
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+
+          cd common 
+          
+          make O=out ARCH=arm64 gki_defconfig
           
           scripts/config --file out/.config -e CONFIG_MODULES
           scripts/config --file out/.config -m CONFIG_IP_SET
@@ -53,30 +57,29 @@ jobs:
           scripts/config --file out/.config -m CONFIG_IP_SET_HASH_NETIFACE
           scripts/config --file out/.config -m CONFIG_IP_SET_LIST_SET
           scripts/config --file out/.config -m CONFIG_NETFILTER_XT_SET
+
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 modules_prepare
+
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 M=net/netfilter/ipset modules
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 M=net/netfilter xt_set.ko
+
+      - name: Collect and Upload
+        run: |
+          mkdir -p final_output
+          find kernel-source/common/out/ -name "*.ko" -exec cp {} final_output/ \;
           
-          make O=out modules_prepare
-
-      - name: Build Specific Modules
-        working-directory: kernel-source
-        run: |
-          make O=out M=net/netfilter/ipset modules
-          make O=out M=net/netfilter xt_set.ko
-
-      - name: Collect and Package Modules
-        run: |
-          mkdir -p output_modules
-          find kernel-source/out/net/netfilter/ -name "*.ko" -exec cp {} output_modules/ \;
-          cat <<EOF > output_modules/load_modules.sh
+          cat <<EOF > final_output/load.sh
           #!/system/bin/sh
-          MOD_DIR="."
-          insmod \$MOD_DIR/ip_set.ko
-          for m in \$MOD_DIR/ip_set_hash_*.ko; do insmod \$m; done
-          insmod \$MOD_DIR/xt_set.ko
+          DIR="\$(dirname \$(readlink -f \$0))"
+          insmod \$DIR/ip_set.ko
+          for f in \$DIR/ip_set_hash_*.ko; do insmod \$f; done
+          insmod \$DIR/xt_set.ko
+          lsmod | grep ip_set
           EOF
-          chmod +x output_modules/load_modules.sh
+          chmod +x final_output/load.sh
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ipset-modules-oneplus-ace2
-          path: output_modules/*
+          name: IPSET-KO
+          path: final_output/*
