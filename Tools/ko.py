@@ -66,7 +66,6 @@ async def main():
         captions = []
         for file in files:
             filename = os.path.basename(file)
-            features = get_features_from_env()
             caption = generate_caption(filename, features)
             captions.append(caption)
         
