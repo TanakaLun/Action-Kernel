@@ -33,7 +33,7 @@ def check_environ():
     else:
         MESSAGE_THREAD_ID = None
 
-def generate_caption(filename, features):
+def generate_caption(filename):
     
     caption = f"""
 **New Build Published!**
@@ -66,7 +66,7 @@ async def main():
         captions = []
         for file in files:
             filename = os.path.basename(file)
-            caption = generate_caption(filename, features)
+            caption = generate_caption(filename)
             captions.append(caption)
         
         final_captions = [""] * len(files)
