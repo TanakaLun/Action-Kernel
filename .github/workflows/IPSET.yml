@@ -170,7 +170,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IPSET-KO
+          name: IPSET-KO-MSM
           path: final_output1/*
 
       - name: Get bot script
@@ -183,10 +183,10 @@ jobs:
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd final_output1
 
-            zip -q -r ../IPSET-KO.zip ./*
+            zip -q -r ../IPSET-KO-MSM.zip ./*
             cd ..
             pip3 install telethon
-            python3 ./bot/Tools/ko.py ./IPSET-KO.zip
+            python3 ./bot/Tools/ko.py ./IPSET-KO-MSM.zip
           fi
         env:
           CHATID: ${{secrets.CHATID}}

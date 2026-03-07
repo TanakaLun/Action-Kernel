@@ -73,13 +73,6 @@ async def main():
         final_captions = [""] * len(files)
         final_captions[-1] = captions[-1]
         
-        print("[+] Caption for last file: ")
-        print("---")
-        print(final_captions[-1])
-        print("---")
-        print(f"[+] Features from env: {get_features_from_env()}")
-        
-        print("[+] Sending")
         await bot.send_file(
             entity=CHAT_ID, 
             file=files, 
