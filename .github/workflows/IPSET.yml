@@ -207,7 +207,7 @@ jobs:
       - name: Upload to telegram group
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            cd final_output1
+            cd kernel_workspace/kernel_platform/common
 
             zip -q -r ../Kernel-Source.zip ./*
             cd ..
