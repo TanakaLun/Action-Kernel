@@ -79,7 +79,7 @@ jobs:
           mkdir -p IP-SET_LKM/netfilter/ipset
           cp $OUT_PATH/netfilter/*.ko IP-SET_LKM/netfilter/ 2>/dev/null || true
           cp $OUT_PATH/netfilter/ipset/*.ko IP-SET_LKM/netfilter/ipset/ 2>/dev/null || true
-          zip -q -r ./IPSET-LKM.zip ./IP-SET_LKM/*
+          cd IP-SET_LKM && zip -q -r ../IPSET-LKM.zip . && cd ..
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
