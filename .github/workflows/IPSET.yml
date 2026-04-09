@@ -75,8 +75,10 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/TanakaLun/IP-SET_LKM.git
           rm -rf .git
-          mv kernel_workspace/kernel_platform/common/out/net/netfilter/*.ko ./IP-SET_LKM
-          mv kernel_workspace/kernel_platform/common/out/net/netfilter/ipset/*.ko ./IP-SET_LKM
+          OUT_PATH="kernel_workspace/kernel_platform/common/out/net/"
+          mkdir -p IP-SET_LKM/netfilter/ipset
+          cp $OUT_PATH/netfilter/*.ko IP-SET_LKM/netfilter/ 2>/dev/null || true
+          cp $OUT_PATH/netfilter/ipset/*.ko IP-SET_LKM/netfilter/ipset/ 2>/dev/null || true
           zip -q -r ./IPSET-LKM.zip ./IP-SET_LKM/*
           
       - name: Upload Artifact
