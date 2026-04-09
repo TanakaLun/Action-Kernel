@@ -83,7 +83,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: IPSET-LKM
-          path: IPSET-LKM.zip
+          path: IP-SET_LKM/*
 
       - name: Get bot script
         uses: actions/checkout@v4
