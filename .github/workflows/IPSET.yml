@@ -2,7 +2,6 @@ name: Build IPSET Kernel Modules
 
 on:
   workflow_dispatch:
-  push:
 
 jobs:
   build:
@@ -94,10 +93,6 @@ jobs:
       - name: Upload to telegram group
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            cd final_output
-
-            zip -q -r ../IPSET-LKM.zip ./*
-            cd ..
             pip3 install telethon
             python3 ./bot/Tools/ko.py ./IPSET-LKM.zip
           fi

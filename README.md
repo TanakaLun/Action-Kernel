@@ -8,3 +8,6 @@
 
 ### GKI & KernelSU
 * [elysias123/GKI_KernelSU_SUSFS](https://github.com/elysias123/GKI_KernelSU_SUSFS)
+
+### LKM
+* [5ec1cff/ddk-module-builder](https://github.com/5ec1cff/ddk-module-builder)
