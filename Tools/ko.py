@@ -37,13 +37,13 @@ def generate_caption(filename):
     
     caption = f"""
 **New Build Published!**
-#IPSET-KO
+#IPSET-LKM
 """.strip()
 
     if len(caption) > 1024:
         caption = f"""
 **New Build Published!**
-#IPSET-KO
+#IPSET-LKM
 """.strip()
     
     return caption

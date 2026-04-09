@@ -53,6 +53,14 @@ jobs:
         run: |
           CLANG_BIN="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
           echo "$CLANG_BIN" >> $GITHUB_PATH
+        path: kernel_workspace/kernel_platform/common
+        
+      - name: Modify modpost.c
+        working-directory: kernel_workspace/kernel_platform/common
+        run: |
+          MODPOST=scripts/mod/modpost.c
+          sed -i 's/^\(\s*check_exports(mod);\)/\/\/\1/' $MODPOST
+          sed -i 's/^\(\s*s->module = exp->module;\)/\/\/\1/' $MODPOST
 
       - name: Build All Required Modules
         working-directory: kernel_workspace/kernel_platform/common
@@ -63,48 +71,26 @@ jobs:
           
           ./scripts/config --file out/.config -e CONFIG_MODULES
           
-          # IPSET 核心及算法
-          ./scripts/config --file out/.config -m CONFIG_IP_SET
-          ./scripts/config --file out/.config --set-val CONFIG_IP_SET_MAX 65534
-          for type in BITMAP_IP BITMAP_IPMAC BITMAP_PORT HASH_IP HASH_IPMARK HASH_IPPORT \
-                       HASH_IPPORTIP HASH_IPPORTNET HASH_IPMAC HASH_MAC HASH_NET \
-                       HASH_NETNET HASH_NETPORT HASH_NETIFACE LIST_SET; do
-            ./scripts/config --file out/.config -m CONFIG_IP_SET_$type
-          done
+          # IPSET 核心及算法以及NETFILTER_XT
+          ./scripts/config --file out/.config -m CONFIG_IP_SET -m CONFIG_IP_SET_BITMAP_IP -m CONFIG_IP_SET_BITMAP_IPMAC -m CONFIG_IP_SET_BITMAP_PORT -m CONFIG_IP_SET_HASH_IP -m CONFIG_IP_SET_HASH_IPMARK -m CONFIG_IP_SET_HASH_IPPORT -m CONFIG_IP_SET_HASH_IPPORTIP -m CONFIG_IP_SET_HASH_IPPORTNET -m CONFIG_IP_SET_HASH_IPMAC -m CONFIG_IP_SET_HASH_MAC -m CONFIG_IP_SET_HASH_NETPORTNET -m CONFIG_IP_SET_HASH_NET -m CONFIG_IP_SET_HASH_NETNET -m CONFIG_IP_SET_HASH_NETPORT -m CONFIG_IP_SET_HASH_NETIFACE -m CONFIG_IP_SET_LIST_SET --set-val CONFIG_IP_SET_MAX 65534 -m CONFIG_NETFILTER_XT_MATCH_ADDRTYPE -m CONFIG_NETFILTER_XT_SET
           
-          # 其他扩展
-          ./scripts/config --file out/.config -m CONFIG_NETFILTER_XT_SET
-          ./scripts/config --file out/.config -m CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
-          ./scripts/config --file out/.config -m CONFIG_IP6_NF_NAT
-          ./scripts/config --file out/.config -m CONFIG_IP6_NF_TARGET_MASQUERADE
-          
+          make $K_ARGS olddefconfig
           make $K_ARGS modules_prepare
           
           make $K_ARGS M=net/netfilter modules
-          make $K_ARGS M=net/ipv6/netfilter modules
-          make $K_ARGS M=net/ipv4/netfilter modules
-          make $K_ARGS M=net/netlink modules
           
-      - name: Collect and Upload
+      - name: Make IPSET-LKM
         run: |
-          mkdir -p final_output
-          find kernel_workspace/kernel_platform/common/out/ -name "*.ko" -exec cp {} final_output/ \;
+          git clone --depth 1 https://github.com/TanakaLun/IP-SET_LKM.git
+          rm -rf .git
+          mv ./kernel_workspace/kernel_platform/common/out/**/*.ko ./IP-SET_LKM
+          zip -q -r ./IPSET-LKM.zip ./IP-SET_LKM/*
           
-          # cat <<EOF > final_output/load.sh
-          # #!/system/bin/sh
-          # DIR="\$(dirname \$(readlink -f \$0))"
-          # insmod \$DIR/ip_set.ko
-          # for f in \$DIR/ip_set_hash_*.ko; do insmod \$f; done
-          # insmod \$DIR/xt_set.ko
-          # lsmod | grep ip_set
-          # EOF
-          # chmod +x final_output/load.sh
-
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IPSET-KO
-          path: final_output/*
+          name: IPSET-LKM
+          path: IPSET-LKM.zip
 
       - name: Get bot script
         uses: actions/checkout@v4
@@ -116,113 +102,12 @@ jobs:
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd final_output
 
-            zip -q -r ../IPSET-KO.zip ./*
+            zip -q -r ../IPSET-LKM.zip ./*
             cd ..
             pip3 install telethon
-            python3 ./bot/Tools/ko.py ./IPSET-KO.zip
+            python3 ./bot/Tools/ko.py ./IPSET-LKM.zip
           fi
         env:
           CHATID: ${{secrets.CHATID}}
           BOT_TOKEN: ${{secrets.BOT_TOKEN}}
-          MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
-      
-          
-      - name: Build All Required Modules msm
-        working-directory: kernel_workspace/kernel_platform/msm-kernel
-        run: |
-          K_ARGS="O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu-"
-
-          make $K_ARGS gki_defconfig
-          
-          ./scripts/config --file out/.config -e CONFIG_MODULES
-          
-          # IPSET 核心及算法
-          ./scripts/config --file out/.config -m CONFIG_IP_SET
-          ./scripts/config --file out/.config --set-val CONFIG_IP_SET_MAX 65534
-          for type in BITMAP_IP BITMAP_IPMAC BITMAP_PORT HASH_IP HASH_IPMARK HASH_IPPORT \
-                       HASH_IPPORTIP HASH_IPPORTNET HASH_IPMAC HASH_MAC HASH_NET \
-                       HASH_NETNET HASH_NETPORT HASH_NETIFACE LIST_SET; do
-            ./scripts/config --file out/.config -m CONFIG_IP_SET_$type
-          done
-          
-          # 其他扩展
-          ./scripts/config --file out/.config -m CONFIG_NETFILTER_XT_SET
-          ./scripts/config --file out/.config -m CONFIG_NETFILTER_XT_MATCH_ADDRTYPE
-          ./scripts/config --file out/.config -m CONFIG_IP6_NF_NAT
-          ./scripts/config --file out/.config -m CONFIG_IP6_NF_TARGET_MASQUERADE
-          
-          make $K_ARGS modules_prepare
-          
-          make $K_ARGS M=net/netfilter modules
-          make $K_ARGS M=net/ipv6/netfilter modules
-          make $K_ARGS M=net/ipv4/netfilter modules
-          make $K_ARGS M=net/netlink modules
-          
-      - name: Collect and Upload
-        run: |
-          mkdir -p final_output1
-          find kernel_workspace/kernel_platform/msm-kernel/out/ -name "*.ko" -exec cp {} final_output1/ \;
-          
-          # cat <<EOF > final_output/load.sh
-          # #!/system/bin/sh
-          # DIR="\$(dirname \$(readlink -f \$0))"
-          # insmod \$DIR/ip_set.ko
-          # for f in \$DIR/ip_set_hash_*.ko; do insmod \$f; done
-          # insmod \$DIR/xt_set.ko
-          # lsmod | grep ip_set
-          # EOF
-          # chmod +x final_output/load.sh
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: IPSET-KO-MSM
-          path: final_output1/*
-
-      - name: Get bot script
-        uses: actions/checkout@v4
-        with:
-          path: bot
-
-      - name: Upload to telegram group
-        run: |
-          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            cd final_output1
-
-            zip -q -r ../IPSET-KO-MSM.zip ./*
-            cd ..
-            pip3 install telethon
-            python3 ./bot/Tools/ko.py ./IPSET-KO-MSM.zip
-          fi
-        env:
-          CHATID: ${{secrets.CHATID}}
-          BOT_TOKEN: ${{secrets.BOT_TOKEN}}
-          MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}           
-          
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kernel-Source
-          path: kernel_workspace/kernel_platform/common/*
-
-      - name: Get bot script
-        uses: actions/checkout@v4
-        with:
-          path: bot
-
-      - name: Upload to telegram group
-        run: |
-          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            cd kernel_workspace/kernel_platform/common
-
-            zip -q -r ../Kernel-Source.zip ./*
-            cd ..
-            pip3 install telethon
-            python3 ./bot/Tools/ko.py ./Kernel-Source.zip
-          fi
-        env:
-          CHATID: ${{secrets.CHATID}}
-          BOT_TOKEN: ${{secrets.BOT_TOKEN}}
-          MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}           
-          
-   
+          MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}} 
