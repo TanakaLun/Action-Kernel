@@ -42,12 +42,6 @@ jobs:
           for dir in kernel_platform/common kernel_platform/msm-kernel; do
             rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || true
           done
-      
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kernel-Source
-          path: kernel_workspace/kernel_platform/common/*
           
       - name: Set Toolchain Path
         run: |
@@ -78,18 +72,12 @@ jobs:
           
           make $K_ARGS M=net/netfilter modules
       
-          
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: test
-          path: kernel_workspace/kernel_platform/common/out/*
-          
       - name: Make IPSET-LKM
         run: |
           git clone --depth 1 https://github.com/TanakaLun/IP-SET_LKM.git
           rm -rf .git
-          mv kernel_workspace/kernel_platform/common/out/**/*.ko ./IP-SET_LKM
+          mv kernel_workspace/kernel_platform/common/out/net/netfilter/*.ko ./IP-SET_LKM
+          mv kernel_workspace/kernel_platform/common/out/net/netfilter/ipset/*.ko ./IP-SET_LKM
           zip -q -r ./IPSET-LKM.zip ./IP-SET_LKM/*
           
       - name: Upload Artifact
