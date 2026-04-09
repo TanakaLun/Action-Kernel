@@ -43,6 +43,12 @@ jobs:
             rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || true
           done
       
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-Source
+          path: kernel_workspace/kernel_platform/common/*
+          
       - name: Set Toolchain Path
         run: |
           CLANG_BIN="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin"
