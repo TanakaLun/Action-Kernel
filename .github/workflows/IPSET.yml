@@ -66,23 +66,23 @@ jobs:
           make O=out M=net/netfilter modules
           make O=out M=net/ipv6/netfilter modules
       
-      - name: Make IPSET-LKM
+      - name: Make IPSET_LKM
         run: |
           git clone --depth 1 https://github.com/TanakaLun/IPSET_LKM.git
-          rm -rf ./IPSET-LKM/.git
+          rm -rf ./IPSET_LKM/.git
           OUT_PATH="kernel_workspace/kernel_platform/common/out/net/"
-          mkdir -p IPSET-LKM/netfilter/ipset
-          mkdir -p IPSET-LKM/ipv6/netfilter
+          mkdir -p IPSET_LKM/netfilter/ipset
+          mkdir -p IPSET_LKM/ipv6/netfilter
           cp $OUT_PATH/netfilter/*.ko IPSET_LKM/netfilter/ 2>/dev/null || true
-          cp $OUT_PATH/netfilter/ipset/*.ko IPSET-LKM/netfilter/ipset/ 2>/dev/null || true
-          cp $OUT_PATH/ipv6/netfilter/*.ko IPSET-LKM/netfilter/ipset/ 2>/dev/null || true
-          cd IPSET-LKM && zip -q -r ../IPSET-LKM.zip
+          cp $OUT_PATH/netfilter/ipset/*.ko IPSET_LKM/netfilter/ipset/ 2>/dev/null || true
+          cp $OUT_PATH/ipv6/netfilter/*.ko IPSET_LKM/ipv6/netfilter/ 2>/dev/null || true
+          cd IPSET_LKM && zip -q -r ../IPSET_LKM.zip
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IPSET-LKM
-          path: IPSET-LKM/*
+          name: IPSET_LKM
+          path: IPSET_LKM/*
 
       - name: Get bot script
         uses: actions/checkout@v4
@@ -93,7 +93,7 @@ jobs:
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             pip3 install telethon
-            python3 ./bot/Tools/ko.py ./IPSET-LKM.zip
+            python3 ./bot/Tools/ko.py ./IPSET_LKM.zip
           fi
         env:
           CHATID: ${{secrets.CHATID}}
