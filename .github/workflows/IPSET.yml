@@ -50,7 +50,7 @@ jobs:
         run: |
           # K_ARGS="O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu-"
 
-          make gki_defconfig
+          make O=out gki_defconfig
           
           ./scripts/config --file out/.config -e CONFIG_MODULES
           
@@ -60,11 +60,11 @@ jobs:
           # NFTABLES
           ./scripts/config --file out/.config -m CONFIG_NF_TABLES -m CONFIG_NFT_META -m CONFIG_NFT_PAYLOAD -m CONFIG_NFT_CT -m CONFIG_NFT_NAT -m CONFIG_NFT_LIMIT -m CONFIG_NFT_LOG -m CONFIG_NFT_COUNTER -m CONFIG_NFT_CMP -m CONFIG_NFT_RANGE -m CONFIG_NFT_BITWISE -m CONFIG_NFT_BYTEORDER -m CONFIG_NFT_NUMGEN -m CONFIG_NFT_QUEUE -m CONFIG_NFT_QUOTA -m CONFIG_NFT_CHAIN_ROUTE -m CONFIG_NFT_FIB -m CONFIG_NFT_FIB_INET -m CONFIG_NFT_RT -m CONFIG_NFT_TUNNEL -m CONFIG_NFT_REDIR -m CONFIG_NFT_MASQ -m CONFIG_NFT_SOCKET -m CONFIG_NFT_XFRM -m CONFIG_NFT_TPROXY -m CONFIG_NFT_OSF -m CONFIG_NFT_SYNPROXY -m CONFIG_NFT_HASH -m CONFIG_NFT_FLOW_OFFLOAD -m CONFIG_NFT_COMPAT -m CONFIG_NFT_SET_HASH -m CONFIG_NFT_SET_BITMAP -m CONFIG_NFT_SET_RBTREE -m CONFIG_NFT_SET_PIPAPO -m CONFIG_NF_FLOW_TABLE -m CONFIG_NF_FLOW_TABLE_INET
           
-          make olddefconfig
-          make modules_prepare
+          make O=out olddefconfig
+          make O=out modules_prepare
           
-          make M=net/netfilter modules
-          make M=net/ipv6/netfilter modules
+          make O=out M=net/netfilter modules
+          make O=out M=net/ipv6/netfilter modules
       
       - name: Make IPSET-LKM
         run: |
