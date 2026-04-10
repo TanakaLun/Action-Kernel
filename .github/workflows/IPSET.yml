@@ -73,19 +73,19 @@ jobs:
       
       - name: Make IPSET-LKM
         run: |
-          git clone --depth 1 https://github.com/TanakaLun/IP-SET_LKM.git
-          rm -rf .git
+          git clone --depth 1 https://github.com/TanakaLun/IPSET_LKM.git
+          rm -rf ./IPSET-LKM/.git
           OUT_PATH="kernel_workspace/kernel_platform/common/out/net/"
-          mkdir -p IP-SET_LKM/netfilter/ipset
-          cp $OUT_PATH/netfilter/*.ko IP-SET_LKM/netfilter/ 2>/dev/null || true
-          cp $OUT_PATH/netfilter/ipset/*.ko IP-SET_LKM/netfilter/ipset/ 2>/dev/null || true
-          cd IP-SET_LKM && zip -q -r ../IPSET-LKM.zip . && cd ..
+          mkdir -p IPSET-LKM/netfilter/ipset
+          cp $OUT_PATH/netfilter/*.ko IPSET_LKM/netfilter/ 2>/dev/null || true
+          cp $OUT_PATH/netfilter/ipset/*.ko IPSET-LKM/netfilter/ipset/ 2>/dev/null || true
+          cd IPSET-LKM && zip -q -r ../IPSET-LKM.zip . && cd ..
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: IPSET-LKM
-          path: IP-SET_LKM/*
+          path: IPSET-LKM/*
 
       - name: Get bot script
         uses: actions/checkout@v4
