@@ -2,22 +2,13 @@ name: Build IPSET Kernel Modules
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Maximize Build Space
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 8192
-          temp-reserve-mb: 4096
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
 
       - name: Install dependencies
         run: |
@@ -57,19 +48,20 @@ jobs:
       - name: Build All Required Modules
         working-directory: kernel_workspace/kernel_platform/common
         run: |
-          K_ARGS="O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu-"
+          # K_ARGS="O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu-"
 
-          make $K_ARGS gki_defconfig
+          make -C gki_defconfig
           
           ./scripts/config --file out/.config -e CONFIG_MODULES
           
           # IPSET 核心及算法以及NETFILTER_XT
-          ./scripts/config --file out/.config -m CONFIG_IP_SET -m CONFIG_IP_SET_BITMAP_IP -m CONFIG_IP_SET_BITMAP_IPMAC -m CONFIG_IP_SET_BITMAP_PORT -m CONFIG_IP_SET_HASH_IP -m CONFIG_IP_SET_HASH_IPMARK -m CONFIG_IP_SET_HASH_IPPORT -m CONFIG_IP_SET_HASH_IPPORTIP -m CONFIG_IP_SET_HASH_IPPORTNET -m CONFIG_IP_SET_HASH_IPMAC -m CONFIG_IP_SET_HASH_MAC -m CONFIG_IP_SET_HASH_NETPORTNET -m CONFIG_IP_SET_HASH_NET -m CONFIG_IP_SET_HASH_NETNET -m CONFIG_IP_SET_HASH_NETPORT -m CONFIG_IP_SET_HASH_NETIFACE -m CONFIG_IP_SET_LIST_SET --set-val CONFIG_IP_SET_MAX 65534 -m CONFIG_NETFILTER_XT_MATCH_ADDRTYPE -m CONFIG_NETFILTER_XT_SET
+          ./scripts/config --file out/.config -m CONFIG_IP_SET -m CONFIG_IP_SET_BITMAP_IP -m CONFIG_IP_SET_BITMAP_IPMAC -m CONFIG_IP_SET_BITMAP_PORT -m CONFIG_IP_SET_HASH_IP -m CONFIG_IP_SET_HASH_IPMARK -m CONFIG_IP_SET_HASH_IPPORT -m CONFIG_IP_SET_HASH_IPPORTIP -m CONFIG_IP_SET_HASH_IPPORTNET -m CONFIG_IP_SET_HASH_IPMAC -m CONFIG_IP_SET_HASH_MAC -m CONFIG_IP_SET_HASH_NETPORTNET -m CONFIG_IP_SET_HASH_NET -m CONFIG_IP_SET_HASH_NETNET -m CONFIG_IP_SET_HASH_NETPORT -m CONFIG_IP_SET_HASH_NETIFACE -m CONFIG_IP_SET_LIST_SET --set-val CONFIG_IP_SET_MAX 65534 -m CONFIG_NETFILTER_XT_MATCH_ADDRTYPE -m CONFIG_NETFILTER_XT_SET -m CONFIG_IP6_NF_TARGET_MASQUERADE -m CONFIG_IP6_NF_NAT
           
-          make $K_ARGS olddefconfig
-          make $K_ARGS modules_prepare
+          make -C olddefconfig
+          make -C modules_prepare
           
-          make $K_ARGS M=net/netfilter modules
+          make -C M=net/netfilter modules
+          make -C M=net/ipv6/netfilter modules
       
       - name: Make IPSET-LKM
         run: |
@@ -77,9 +69,11 @@ jobs:
           rm -rf ./IPSET-LKM/.git
           OUT_PATH="kernel_workspace/kernel_platform/common/out/net/"
           mkdir -p IPSET-LKM/netfilter/ipset
+          mkdir -p IPSET-LKM/ipv6/netfilter
           cp $OUT_PATH/netfilter/*.ko IPSET_LKM/netfilter/ 2>/dev/null || true
           cp $OUT_PATH/netfilter/ipset/*.ko IPSET-LKM/netfilter/ipset/ 2>/dev/null || true
-          cd IPSET-LKM && zip -q -r ../IPSET-LKM.zip . && cd ..
+          cp $OUT_PATH/ipv6/netfilter/*.ko IPSET-LKM/netfilter/ipset/ 2>/dev/null || true
+          cd IPSET-LKM && zip -q -r ../IPSET-LKM.zip
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
