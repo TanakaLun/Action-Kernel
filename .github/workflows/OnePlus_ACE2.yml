@@ -1,6 +1,7 @@
 name: OnePlus Ace2 Kernel Build
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       kname:
@@ -40,7 +41,7 @@ on:
         default: false
       sus_branch:
         descripiton: "SUS来源"
-        required: true
+        required: false
         type: choice
         options:
           - '西蒙庞克'
@@ -321,45 +322,45 @@ jobs:
           
           if [ "${{ inputs.nftables }}" == "true" ]; then
             {
-             echo "CONFIG_NETFILTER=y"
-             echo "CONFIG_NETFILTER_NETLINK=y"
-             echo "CONFIG_NETFILTER_NETLINK_LOG=y"
-             echo "CONFIG_NF_CONNTRACK=y"
-             echo "CONFIG_NF_CT_NETLINK=y"
-             echo "CONFIG_NF_CONNTRACK_EVENTS=y"
-             echo "CONFIG_NF_CONNTRACK_TIMEOUT=y"
-             echo "CONFIG_NF_CONNTRACK_TIMESTAMP=y"
+             # echo "CONFIG_NETFILTER=y"
+             # echo "CONFIG_NETFILTER_NETLINK=y"
+             # echo "CONFIG_NETFILTER_NETLINK_LOG=y"
+             # echo "CONFIG_NF_CONNTRACK=y"
+             # echo "CONFIG_NF_CT_NETLINK=y"
+             # echo "CONFIG_NF_CONNTRACK_EVENTS=y"
+             # echo "CONFIG_NF_CONNTRACK_TIMEOUT=y"
+             # echo "CONFIG_NF_CONNTRACK_TIMESTAMP=y"
 
              echo "CONFIG_NF_TABLES=y"
              echo "CONFIG_NF_TABLES_INET=y"
              echo "CONFIG_NF_TABLES_IPV4=y"
              echo "CONFIG_NF_TABLES_IPV6=y"
-             echo "CONFIG_NF_TABLES_NETDEV=y"
+             # echo "CONFIG_NF_TABLES_NETDEV=y"
              
-             echo "CONFIG_NFT_SET_RBTREE=y"
-             echo "CONFIG_NFT_SET_HASH=y"
-             echo "CONFIG_NFT_SET_BITMAP=y"
-             echo "CONFIG_NFT_SET_PIPAPO=y"
+             # echo "CONFIG_NFT_SET_RBTREE=y"
+             # echo "CONFIG_NFT_SET_HASH=y"
+             # echo "CONFIG_NFT_SET_BITMAP=y"
+             # echo "CONFIG_NFT_SET_PIPAPO=y"
 
-             echo "CONFIG_NFT_NUMGEN=y"
-             echo "CONFIG_NFT_CT=y"
-             echo "CONFIG_NFT_LIMIT=y"
-             echo "CONFIG_NFT_COUNTER=y"
-             echo "CONFIG_NFT_LOG=y"
-             echo "CONFIG_NFT_QUOTA=y"
-             echo "CONFIG_NFT_REJECT=y"
-             echo "CONFIG_NFT_REJECT_INET=y"
-             echo "CONFIG_NFT_META=y"
-             echo "CONFIG_NFT_RT=y"
-             echo "CONFIG_NFT_EXHDR=y"
-             echo "CONFIG_NFT_FIB=y"
-             echo "CONFIG_NFT_FIB_INET=y"
+             # echo "CONFIG_NFT_NUMGEN=y"
+             # echo "CONFIG_NFT_CT=y"
+             # echo "CONFIG_NFT_LIMIT=y"
+             # echo "CONFIG_NFT_COUNTER=y"
+             # echo "CONFIG_NFT_LOG=y"
+             # echo "CONFIG_NFT_QUOTA=y"
+             # echo "CONFIG_NFT_REJECT=y"
+             # echo "CONFIG_NFT_REJECT_INET=y"
+             # echo "CONFIG_NFT_META=y"
+             # echo "CONFIG_NFT_RT=y"
+             # echo "CONFIG_NFT_EXHDR=y"
+             # echo "CONFIG_NFT_FIB=y"
+             # echo "CONFIG_NFT_FIB_INET=y"
 
-             echo "CONFIG_NF_NAT=y"
-             echo "CONFIG_NF_NAT_IPV4=y"
-             echo "CONFIG_NF_NAT_IPV6=y"
-             echo "CONFIG_NF_NAT_MASQUERADE=y"
-             echo "CONFIG_NF_NAT_REDIRECT=y"
+             # echo "CONFIG_NF_NAT=y"
+             # echo "CONFIG_NF_NAT_IPV4=y"
+             # echo "CONFIG_NF_NAT_IPV6=y"
+             # echo "CONFIG_NF_NAT_MASQUERADE=y"
+             # echo "CONFIG_NF_NAT_REDIRECT=y"
              
              echo "CONFIG_NFT_NAT=y"
              echo "CONFIG_NFT_MASQ=y"
@@ -399,12 +400,6 @@ jobs:
           sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
             s/local oki_infix=o/local oki_infix=${{ inputs.kname }}/
           }' ./common/scripts/setlocalversion
-
-      - name: Upload Kernel Code
-        uses: actions/upload-artifact@v4
-        with:
-          name: Ace2_C16
-          path: ./kernel_workspace/kernel_platform/*
           
       - name: Build Kernel
         run: |
