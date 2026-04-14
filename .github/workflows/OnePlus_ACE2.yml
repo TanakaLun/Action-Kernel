@@ -56,6 +56,11 @@ on:
         required: false
         type: boolean
         default: true
+      nftables:
+        description: "启用nftables"
+        required: false
+        type: boolean
+        default: false
       baseband_guard:
         description: "启用内核级基带保护"
         required: false
@@ -314,6 +319,64 @@ jobs:
             } >> ./arch/arm64/configs/gki_defconfig
           fi
           
+          if [ "${{ inputs.nftables }}" == "true" ]; then
+            {
+             echo "CONFIG_NETFILTER=y"
+             echo "CONFIG_NETFILTER_NETLINK=y"
+             echo "CONFIG_NETFILTER_NETLINK_LOG=y"
+             echo "CONFIG_NF_CONNTRACK=y"
+             echo "CONFIG_NF_CT_NETLINK=y"
+             echo "CONFIG_NF_CONNTRACK_EVENTS=y"
+             echo "CONFIG_NF_CONNTRACK_TIMEOUT=y"
+             echo "CONFIG_NF_CONNTRACK_TIMESTAMP=y"
+
+             echo "CONFIG_NF_TABLES=y"
+             echo "CONFIG_NF_TABLES_INET=y"
+             echo "CONFIG_NF_TABLES_IPV4=y"
+             echo "CONFIG_NF_TABLES_IPV6=y"
+             echo "CONFIG_NF_TABLES_NETDEV=y"
+             
+             echo "CONFIG_NFT_SET_RBTREE=y"
+             echo "CONFIG_NFT_SET_HASH=y"
+             echo "CONFIG_NFT_SET_BITMAP=y"
+             echo "CONFIG_NFT_SET_PIPAPO=y"
+
+             echo "CONFIG_NFT_NUMGEN=y"
+             echo "CONFIG_NFT_CT=y"
+             echo "CONFIG_NFT_LIMIT=y"
+             echo "CONFIG_NFT_COUNTER=y"
+             echo "CONFIG_NFT_LOG=y"
+             echo "CONFIG_NFT_QUOTA=y"
+             echo "CONFIG_NFT_REJECT=y"
+             echo "CONFIG_NFT_REJECT_INET=y"
+             echo "CONFIG_NFT_META=y"
+             echo "CONFIG_NFT_RT=y"
+             echo "CONFIG_NFT_EXHDR=y"
+             echo "CONFIG_NFT_FIB=y"
+             echo "CONFIG_NFT_FIB_INET=y"
+
+             echo "CONFIG_NF_NAT=y"
+             echo "CONFIG_NF_NAT_IPV4=y"
+             echo "CONFIG_NF_NAT_IPV6=y"
+             echo "CONFIG_NF_NAT_MASQUERADE=y"
+             echo "CONFIG_NF_NAT_REDIRECT=y"
+             
+             echo "CONFIG_NFT_NAT=y"
+             echo "CONFIG_NFT_MASQ=y"
+             echo "CONFIG_NFT_REDIR=y"
+             echo "CONFIG_NFT_CHAIN_NAT_IPV4=y"
+             echo "CONFIG_NFT_CHAIN_NAT_IPV6=y"
+             echo "CONFIG_NFT_CHAIN_NAT_INET=y"
+
+             echo "CONFIG_NFT_OBJREF=y"
+             echo "CONFIG_NFT_QUEUE=y"
+             echo "CONFIG_NFT_TUNNEL=y"
+             echo "CONFIG_NFT_SOCKET=y"
+             echo "CONFIG_NFT_OSF=y"
+             echo "CONFIG_NFT_TPROXY=y"
+            } >> ./arch/arm64/configs/gki_defconfig
+          fi
+
       - name: Other tasks
         run: |
           cd kernel_workspace/kernel_platform/common

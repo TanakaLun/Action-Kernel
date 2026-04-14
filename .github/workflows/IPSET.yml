@@ -2,7 +2,6 @@ name: Build IPSET Kernel Modules
 
 on:
   workflow_dispatch:
-  push:
 
 jobs:
   build:
@@ -72,11 +71,11 @@ jobs:
           rm -rf ./IPSET_LKM/.git
           OUT_PATH="kernel_workspace/kernel_platform/common/out/net/"
           mkdir -p IPSET_LKM/netfilter/ipset
-          mkdir -p IPSET_LKM/ipv6/netfilter
+          mkdir -p IPSET_LKM/iptables
           cp $OUT_PATH/netfilter/*.ko IPSET_LKM/netfilter/ 2>/dev/null || true
           cp $OUT_PATH/netfilter/ipset/*.ko IPSET_LKM/netfilter/ipset/ 2>/dev/null || true
-          cp $OUT_PATH/ipv6/netfilter/*.ko IPSET_LKM/ipv6/netfilter/ 2>/dev/null || true
-          cd IPSET_LKM && zip -q -r ../IPSET_LKM.zip
+          cp $OUT_PATH/ipv6/netfilter/*.ko IPSET_LKM/iptables/ 2>/dev/null || true
+          cd IPSET_LKM && zip -q -r ../IPSET_LKM.zip ./*
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
