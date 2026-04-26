@@ -36,7 +36,7 @@ jobs:
 
       - name: Build dae
         run: |
-          TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+          TOOLCHAIN=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin
           
           export CLANG=$TOOLCHAIN/aarch64-linux-android35-clang
           export CC=$TOOLCHAIN/aarch64-linux-android35-clang
