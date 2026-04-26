@@ -44,7 +44,7 @@ jobs:
           export CGO_ENABLED=1
           export CGO_LDFLAGS="-Wl,-z,max-page-size=16384"
           
-          make GOFLAGS="-buildvcs=false -ldflags='-s -w'" \
+          make GOFLAGS="-buildvcs=false -ldflags=-s -ldflags=-w" \
                CC=$CC
 
       - name: Upload dae Binary
