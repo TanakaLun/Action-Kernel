@@ -1,0 +1,54 @@
+name: Build dae for Android
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          repository: daeuniverse/dae
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          check-latest: true
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm make git
+
+      - name: Setup Android NDK
+        uses: n0rt3n/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r29
+
+      - name: Build dae
+        run: |
+          TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+          
+          export CC=$TOOLCHAIN/aarch64-linux-android35-clang
+          
+          export GOOS=android
+          export GOARCH=arm64
+          export CGO_ENABLED=1
+          export CGO_LDFLAGS="-Wl,-z,max-page-size=16384"
+          
+          make GOFLAGS="-buildvcs=false -ldflags='-s -w'" \
+               CC=$CC
+
+      - name: Upload dae Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: dae-android15-arm64
+          path: dae
