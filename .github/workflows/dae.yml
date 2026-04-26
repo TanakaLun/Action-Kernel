@@ -51,7 +51,6 @@ jobs:
                CLANG=$CLANG \
                STRIP=$STRIP \
                GOFLAGS="-buildvcs=false" \
-               BUILD_ARGS="-ldflags='-s -w -extldflags=-zmax-page-size=16384'" \
                dae
 
       - name: Upload dae Binary
