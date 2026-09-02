@@ -185,16 +185,13 @@ jobs:
             else
               curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s master
             fi
-          fi
 
       - name: Apply Fuse BPF backport
-        if: ${{ github.event_name == 'push' || inputs.fuse_bpf }}
+        if: ${{ inputs.fuse_bpf }}
         run: |
-          pwd
-          test -f "${{ github.workspace }}/Tools/apply_fuse_bpf.sh"
-          test -f "${{ github.workspace }}/Patches/fuse-bpf-backport.patch"
-          bash "${{ github.workspace }}/Tools/apply_fuse_bpf.sh" "${{ github.workspace }}/kernel_workspace/kernel_platform/common"
-      
+          wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/apply_fuse_bpf.sh
+          ./apply_fuse_bpf.sh kernel_workspace/kernel_platform/common
+
       - name: Setup Patches
         if: ${{ inputs.ksu_type != 'none' || inputs.susfs || inputs.lz4kd }}
         run: |
@@ -228,7 +225,7 @@ jobs:
             cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4k_oplus.patch ./
             patch -p1 -F 3 < lz4k_oplus.patch || true
           fi
-
+      
           if [ "${{ inputs.susfs }}" == "true" ]; then
             cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
             patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
@@ -294,9 +291,9 @@ jobs:
             echo "CONFIG_TCP_CONG_HTCP=n" >> ./arch/arm64/configs/gki_defconfig
           fi
 
-          if [ "${{ github.event_name == 'push' || inputs.fuse_bpf }}" == "true" ]; then
-            echo "CONFIG_BPF=y" >> ./arch/arm64/configs/gki_defconfig
-            echo "CONFIG_FUSE_BPF=y" >> ./arch/arm64/configs/gki_defconfig
+           if [ "${{ inputs.fuse_bpf }}" == "true" ]; then
+             echo "CONFIG_BPF=y" >> ./arch/arm64/configs/gki_defconfig
+             echo "CONFIG_FUSE_BPF=y" >> ./arch/arm64/configs/gki_defconfig
           fi
           
           if [ "${{ inputs.lz4kd }}" == "true" ]; then
