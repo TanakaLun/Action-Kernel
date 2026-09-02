@@ -5566,6 +5566,34 @@ index b17cb7224144..3abdf0e2be89 100644
  	if (fuse_is_bad(inode))
  		return -EIO;
  
+diff --git a/include/linux/bpf_types.h b/include/linux/bpf_types.h
+index 2bb5801b5887..2d8b63574aa8 100644
+--- a/include/linux/bpf_types.h
++++ b/include/linux/bpf_types.h
+@@ -77,6 +77,9 @@ BPF_PROG_TYPE(BPF_PROG_TYPE_LSM, lsm,
+ 	       void *, void *)
+ #endif /* CONFIG_BPF_LSM */
+ #endif
++#ifdef CONFIG_FUSE_BPF
++BPF_PROG_TYPE(BPF_PROG_TYPE_FUSE, fuse, struct fuse_bpf_args, struct fuse_bpf_args)
++#endif
+ 
+ BPF_MAP_TYPE(BPF_MAP_TYPE_ARRAY, array_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_PERCPU_ARRAY, percpu_array_map_ops)
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 2292fb44bbac..5474d832c385 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -199,6 +199,9 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_EXT,
+ 	BPF_PROG_TYPE_LSM,
+ 	BPF_PROG_TYPE_SK_LOOKUP,
++#ifndef __GENKSYMS__ // ANDROID CRC kabi preservation hack
++	BPF_PROG_TYPE_FUSE,
++#endif
+ };
+ 
+ enum bpf_attach_type {
 diff --git a/include/uapi/linux/fuse.h b/include/uapi/linux/fuse.h
 index bf3c62dd7112..1ee26321b145 100644
 --- a/include/uapi/linux/fuse.h
@@ -5684,3 +5712,104 @@ index bf3c62dd7112..1ee26321b145 100644
 +#define FUSE_POSTFILTER		0x20000
 +
  #endif /* _LINUX_FUSE_H */
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index c1b9f71ee6aa..bfdc63dc74db 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -36,3 +36,6 @@ obj-$(CONFIG_BPF_SYSCALL) += bpf_struct_ops.o
+ obj-${CONFIG_BPF_LSM} += bpf_lsm.o
+ endif
+ obj-$(CONFIG_BPF_PRELOAD) += preload/
++ifeq ($(CONFIG_FUSE_BPF),y)
++obj-$(CONFIG_BPF_SYSCALL) += bpf_fuse.o
++endif
+diff --git a/kernel/bpf/bpf_fuse.c b/kernel/bpf/bpf_fuse.c
+new file mode 100644
+index 000000000000..00738c84b76e
+--- /dev/null
++++ b/kernel/bpf/bpf_fuse.c
+@@ -0,0 +1,72 @@
++// SPDX-License-Identifier: GPL-2.0
++// Copyright (c) 2021 Google LLC
++
++#include <linux/filter.h>
++#include <linux/fuse.h>
++
++static const struct bpf_func_proto *
++fuse_prog_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
++{
++	switch (func_id) {
++	case BPF_FUNC_trace_printk:
++			return bpf_get_trace_printk_proto();
++
++	case BPF_FUNC_get_current_uid_gid:
++			return &bpf_get_current_uid_gid_proto;
++
++	case BPF_FUNC_get_current_pid_tgid:
++			return &bpf_get_current_pid_tgid_proto;
++
++	case BPF_FUNC_map_lookup_elem:
++		return &bpf_map_lookup_elem_proto;
++
++	case BPF_FUNC_map_update_elem:
++		return &bpf_map_update_elem_proto;
++
++	default:
++		pr_debug("Invalid fuse bpf func %d\n", func_id);
++		return NULL;
++	}
++}
++
++static bool fuse_prog_is_valid_access(int off, int size,
++				enum bpf_access_type type,
++				const struct bpf_prog *prog,
++				struct bpf_insn_access_aux *info)
++{
++	int i;
++
++	if (off < 0 || off > offsetofend(struct fuse_bpf_args, out_args))
++		return false;
++
++	/* TODO This is garbage. Do it properly */
++	for (i = 0; i < 5; i++) {
++		if (off == offsetof(struct fuse_bpf_args, in_args[i].value)) {
++			info->reg_type = PTR_TO_RDONLY_BUF;
++			info->ctx_field_size = 256;
++			if (type != BPF_READ)
++				return false;
++			return true;
++		}
++	}
++	for (i = 0; i < 3; i++) {
++		if (off == offsetof(struct fuse_bpf_args, out_args[i].value)) {
++			info->reg_type = PTR_TO_RDWR_BUF;
++			info->ctx_field_size = 256;
++			return true;
++		}
++	}
++	if (type != BPF_READ)
++		return false;
++
++	return true;
++}
++
++const struct bpf_verifier_ops fuse_verifier_ops = {
++	.get_func_proto  = fuse_prog_func_proto,
++	.is_valid_access = fuse_prog_is_valid_access,
++};
++
++const struct bpf_prog_ops fuse_prog_ops = {
++};
++
+diff --git a/kernel/bpf/btf.c b/kernel/bpf/btf.c
+index cfbb038d150c..fcb6ca73d6ff 100644
+--- a/kernel/bpf/btf.c
++++ b/kernel/bpf/btf.c
+@@ -3,6 +3,7 @@
+ 
+ #include <uapi/linux/btf.h>
+ #include <uapi/linux/bpf.h>
++#include <uapi/linux/fuse.h>
+ #include <uapi/linux/bpf_perf_event.h>
+ #include <uapi/linux/types.h>
+ #include <linux/seq_file.h>
