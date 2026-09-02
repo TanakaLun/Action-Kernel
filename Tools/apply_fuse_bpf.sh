@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 kernel_tree=${1:?usage: apply_fuse_bpf.sh <kernel-tree>}
-patch_file="$repo_root/Patches/fuse-bpf-backport.patch"
+patch_file="fuse-bpf-backport.patch"
 
 if [[ ! -d "$kernel_tree/fs/fuse" || ! -f "$kernel_tree/Makefile" ]]; then
   printf 'Not a kernel source tree: %s\n' "$kernel_tree" >&2
