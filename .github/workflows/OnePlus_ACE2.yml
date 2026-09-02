@@ -190,6 +190,7 @@ jobs:
         if: ${{ inputs.fuse_bpf }}
         run: |
           wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/apply_fuse_bpf.sh
+          chmod +x apply_fuse_bpf.sh
           ./apply_fuse_bpf.sh kernel_workspace/kernel_platform/common
 
       - name: Setup Patches
