@@ -190,7 +190,10 @@ jobs:
       - name: Apply Fuse BPF backport
         if: ${{ github.event_name == 'push' || inputs.fuse_bpf }}
         run: |
-          ./Tools/apply_fuse_bpf.sh kernel_workspace/kernel_platform/common
+          pwd
+          test -f "${{ github.workspace }}/Tools/apply_fuse_bpf.sh"
+          test -f "${{ github.workspace }}/Patches/fuse-bpf-backport.patch"
+          bash "${{ github.workspace }}/Tools/apply_fuse_bpf.sh" "${{ github.workspace }}/kernel_workspace/kernel_platform/common"
       
       - name: Setup Patches
         if: ${{ inputs.ksu_type != 'none' || inputs.susfs || inputs.lz4kd }}
