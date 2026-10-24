@@ -402,7 +402,10 @@ jobs:
 
           if [ "${{ inputs.container_ns }}" == "true" ]; then
             # 容器运行时 (kurumi-containerd / lxc / docker) 所需 namespace
-            # PID_NS / IPC_NS / USER_NS / CGROUP_NS
+            # 注意: 此内核树里 CONFIG_IPC_NS 依赖 (SYSVIPC || POSIX_MQUEUE),
+            # 必须先开 SYSVIPC, 否则 IPC_NS=y 会被 olddefconfig 丢弃。
+            echo "CONFIG_SYSVIPC=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_POSIX_MQUEUE=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
