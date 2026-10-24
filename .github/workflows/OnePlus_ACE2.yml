@@ -171,20 +171,28 @@ jobs:
             rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || true
           done
          
-      - name: Apply GKI kABI patches (SYSVIPC / POSIX_MQUEUE)
+      - name: Apply Droidspaces kernel patches (5.10 SYSVIPC ABI + midas fix)
         if: ${{ inputs.container_ns }}
         run: |
+          # 同平台 Action-Build 的 android12-5.10 方案：
+          # 1) 注释原 sysvsem/sysvshm，在 sched_class 后以 #ifndef __GENKSYMS__ 重插
+          #    （运行时保留字段、genksyms CRC 与 stock 一致 → vendor 模块能加载）
+          # 2) user_struct 的 mq_bytes 挪进 KABI 槽1
+          # 3) ghost-task-for-midas：修 oplus_bsp_midas 模块 find_task_by_vpid
+          #    NULL 解引用（启用容器 namespace 后开机崩溃的真凶）
           cd kernel_workspace/kernel_platform/common
-          BASE="https://raw.githubusercontent.com/ravindu644/Droidspaces-OSS/main/Documentation/resources/kernel-patches/GKI/below-kernel-6.12"
-          # 把 sysvsem/sysvshm 挪进 task_struct 的 ANDROID_KABI 保留槽(槽6/7/8)，
-          # 把 mq_bytes 挪进 user_struct 保留槽(槽1)，使 SYSVIPC/POSIX_MQUEUE
-          # 不改变任何偏移，保住 GKI ABI。槽1 已被 pf_io_worker 占用，故用 6_7_8。
-          curl -fsSL "$BASE/001.GKI-below-6.12-fix_sysvipc_kabi_6_7_8.patch" | patch -p1 -F 3
-          curl -fsSL "$BASE/002.5.10_or_lower_use_android_abi_padding_for_posix_mqueue.patch" | patch -p1 -F 3
-          # 强制校验：若 patch 没真正落到保留槽，则构建失败，避免刷砖
-          grep -q 'ANDROID_KABI_USE(6, struct sysv_sem sysvsem)' include/linux/sched.h
+          PATCH_DIR="${GITHUB_WORKSPACE}/Patches"
+          sed -i 's/^\(\t\)struct sysv_sem\b.*sysvsem;/\1\/\/ struct sysv_sem\t\t\tsysvsem;/' include/linux/sched.h
+          sed -i 's/^\(\t\)struct sysv_shm\b.*sysvshm;/\1\/\/ struct sysv_shm\t\t\tsysvshm;/' include/linux/sched.h
+          sed -i '/^\tconst struct sched_class\t\*sched_class;/a \\n#ifndef __GENKSYMS__\n\tstruct sysv_sem\t\t\tsysvsem;\n\tstruct sysv_shm\t\t\tsysvshm;\n#endif\n' include/linux/sched.h
+          sed -i 's/^\tunsigned long mq_bytes;\t\/\* How many bytes can be allocated to mqueue[?] \*\//\t\/\/unsigned long mq_bytes;\t\/* How many bytes can be allocated to mqueue? *\//' include/linux/sched/user.h
+          sed -i '/struct ratelimit_state ratelimit;/,/ANDROID_OEM_DATA_ARRAY(1, 2);/{/^\tANDROID_KABI_RESERVE(1);/{N;N;s/^\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);/#if defined(CONFIG_POSIX_MQUEUE)\n\tANDROID_KABI_USE(1, unsigned long mq_bytes);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#else\n\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#endif/}}' include/linux/sched/user.h
+          patch -p1 --forward < "${PATCH_DIR}/ghost-task-for-midas.patch" || true
+          # 强制校验（任一失败即构建失败，绝不产出会刷砖的内核）
+          grep -q '#ifndef __GENKSYMS__' include/linux/sched.h
           grep -q 'ANDROID_KABI_USE(1, unsigned long mq_bytes)' include/linux/sched/user.h
-          echo "kABI patches applied and verified"
+          grep -q 'ghost_task' kernel/pid.c
+          echo "Droidspaces 5.10 patches applied and verified"
 
       - name: Setup KSU
         if: ${{ inputs.ksu_type != 'none' }}
@@ -416,15 +424,17 @@ jobs:
           fi
 
           if [ "${{ inputs.container_ns }}" == "true" ]; then
-            # 容器运行时 (kurumi-containerd / droidspaces / lxc / docker) 所需配置。
-            # SYSVIPC/POSIX_MQUEUE/IPC_NS 会改变 task_struct/user_struct 布局,
-            # 必须配套上面的 "Apply GKI kABI patches" 步骤, 把新字段塞进
-            # ANDROID_KABI 保留槽以保持 ABI 不变, 否则 vendor 模块失配会刷砖。
+            # 容器 / systemd 所需配置（与同平台 Action-Build DROID_SPACES 一致）。
+            # SYSVIPC/POSIX_MQUEUE/IPC_NS 需配套上面的
+            # "Apply Droidspaces kernel patches" 步骤（5.10 ABI + midas 修复），
+            # 否则 oplus_bsp_midas 模块 NULL 解引用 + ABI 失配会开机崩溃。
             echo "CONFIG_SYSVIPC=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_POSIX_MQUEUE=y" >> ./arch/arm64/configs/gki_defconfig
-            echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_NAMESPACES=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_DEVTMPFS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_CGROUP_NS=y" >> ./arch/arm64/configs/gki_defconfig
           fi
 
