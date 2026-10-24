@@ -171,6 +171,21 @@ jobs:
             rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || true
           done
          
+      - name: Apply GKI kABI patches (SYSVIPC / POSIX_MQUEUE)
+        if: ${{ inputs.container_ns }}
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          BASE="https://raw.githubusercontent.com/ravindu644/Droidspaces-OSS/main/Documentation/resources/kernel-patches/GKI/below-kernel-6.12"
+          # 把 sysvsem/sysvshm 挪进 task_struct 的 ANDROID_KABI 保留槽(槽6/7/8)，
+          # 把 mq_bytes 挪进 user_struct 保留槽(槽1)，使 SYSVIPC/POSIX_MQUEUE
+          # 不改变任何偏移，保住 GKI ABI。槽1 已被 pf_io_worker 占用，故用 6_7_8。
+          curl -fsSL "$BASE/001.GKI-below-6.12-fix_sysvipc_kabi_6_7_8.patch" | patch -p1 -F 3
+          curl -fsSL "$BASE/002.5.10_or_lower_use_android_abi_padding_for_posix_mqueue.patch" | patch -p1 -F 3
+          # 强制校验：若 patch 没真正落到保留槽，则构建失败，避免刷砖
+          grep -q 'ANDROID_KABI_USE(6, struct sysv_sem sysvsem)' include/linux/sched.h
+          grep -q 'ANDROID_KABI_USE(1, unsigned long mq_bytes)' include/linux/sched/user.h
+          echo "kABI patches applied and verified"
+
       - name: Setup KSU
         if: ${{ inputs.ksu_type != 'none' }}
         run: |
@@ -401,13 +416,14 @@ jobs:
           fi
 
           if [ "${{ inputs.container_ns }}" == "true" ]; then
-            # 容器所需 namespace。
-            # !! 警告: 绝对不要在此 GKI 内核开启 SYSVIPC / POSIX_MQUEUE / IPC_NS !!
-            # 它们会改变 struct task_struct (sysvsem/sysvshm) 与 struct
-            # user_struct (mq_bytes) 的布局, 破坏 GKI ABI, 使预编译的 vendor
-            # 模块失配 -> oops -> 因 PANIC_ON_OOPS 直接黑屏无法开机。
-            # PID/USER/CGROUP_NS 不改变核心结构布局, 是 ABI 安全的。
+            # 容器运行时 (kurumi-containerd / droidspaces / lxc / docker) 所需配置。
+            # SYSVIPC/POSIX_MQUEUE/IPC_NS 会改变 task_struct/user_struct 布局,
+            # 必须配套上面的 "Apply GKI kABI patches" 步骤, 把新字段塞进
+            # ANDROID_KABI 保留槽以保持 ABI 不变, 否则 vendor 模块失配会刷砖。
+            echo "CONFIG_SYSVIPC=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_POSIX_MQUEUE=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_CGROUP_NS=y" >> ./arch/arm64/configs/gki_defconfig
           fi
