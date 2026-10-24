@@ -87,6 +87,11 @@ on:
         required: false
         type: boolean
         default: true
+      container_ns:
+        description: "启用容器运行时所需namespace (PID/IPC/USER/CGROUP) - kurumi-containerd/lxc/docker"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -395,6 +400,15 @@ jobs:
             } >> ./arch/arm64/configs/gki_defconfig
           fi
 
+          if [ "${{ inputs.container_ns }}" == "true" ]; then
+            # 容器运行时 (kurumi-containerd / lxc / docker) 所需 namespace
+            # PID_NS / IPC_NS / USER_NS / CGROUP_NS
+            echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CGROUP_NS=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
+
       - name: Other tasks
         run: |
           cd kernel_workspace/kernel_platform/common
@@ -464,7 +478,7 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: Ace2_${{ inputs.ksu_type == 'none' && '' || inputs.ksu_type }}${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}
+          name: Ace2_${{ inputs.ksu_type == 'none' && '' || inputs.ksu_type }}${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}
           path: ./AnyKernel3/*
           
       - name: Get bot script
@@ -476,7 +490,7 @@ jobs:
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd AnyKernel3
-            FEATURE_SUFFIX="${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}"
+            FEATURE_SUFFIX="${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}"
             KSU_TYPE="${{ inputs.ksu_type }}"
             if [ "$KSU_TYPE" == "none" ]; then
               FILENAME_PREFIX="Ace2"
@@ -502,3 +516,4 @@ jobs:
           LZ4KD: ${{ inputs.lz4kd }}
           SSG: ${{ inputs.ssg }}
           BBR: ${{ inputs.bbr }}
+          CONTAINER_NS: ${{ inputs.container_ns }}
