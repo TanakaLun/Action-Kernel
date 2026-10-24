@@ -401,13 +401,13 @@ jobs:
           fi
 
           if [ "${{ inputs.container_ns }}" == "true" ]; then
-            # 容器运行时 (kurumi-containerd / lxc / docker) 所需 namespace
-            # 注意: 此内核树里 CONFIG_IPC_NS 依赖 (SYSVIPC || POSIX_MQUEUE),
-            # 必须先开 SYSVIPC, 否则 IPC_NS=y 会被 olddefconfig 丢弃。
-            echo "CONFIG_SYSVIPC=y" >> ./arch/arm64/configs/gki_defconfig
-            echo "CONFIG_POSIX_MQUEUE=y" >> ./arch/arm64/configs/gki_defconfig
+            # 容器所需 namespace。
+            # !! 警告: 绝对不要在此 GKI 内核开启 SYSVIPC / POSIX_MQUEUE / IPC_NS !!
+            # 它们会改变 struct task_struct (sysvsem/sysvshm) 与 struct
+            # user_struct (mq_bytes) 的布局, 破坏 GKI ABI, 使预编译的 vendor
+            # 模块失配 -> oops -> 因 PANIC_ON_OOPS 直接黑屏无法开机。
+            # PID/USER/CGROUP_NS 不改变核心结构布局, 是 ABI 安全的。
             echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
-            echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_CGROUP_NS=y" >> ./arch/arm64/configs/gki_defconfig
           fi
