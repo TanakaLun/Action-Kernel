@@ -12,7 +12,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev bc flex bison libelf-dev tree dos2unix ccache python3 git curl liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk cpio lz4 lzop pahole dwarves coreutils procps
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev bc flex bison libelf-dev tree dos2unix ccache python3 git curl zlib1g-dev libxml2-utils rsync unzip gawk cpio lz4 lzop pahole dwarves coreutils procps
 
       - name: Configure Git and repo
         run: |
