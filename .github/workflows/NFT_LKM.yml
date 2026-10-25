@@ -201,6 +201,7 @@ jobs:
             else
               curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s master
             fi
+          fi
 
       - name: Apply Fuse BPF backport
         if: ${{ inputs.fuse_bpf }}
