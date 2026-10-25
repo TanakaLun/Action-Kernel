@@ -170,13 +170,15 @@ jobs:
         if: ${{ inputs.container_ns }}
         run: |
           cd kernel_workspace/kernel_platform/common
-          PATCH_DIR="${GITHUB_WORKSPACE}/Patches"
           sed -i 's/^\(\t\)struct sysv_sem\b.*sysvsem;/\1\/\/ struct sysv_sem\t\t\tsysvsem;/' include/linux/sched.h
           sed -i 's/^\(\t\)struct sysv_shm\b.*sysvshm;/\1\/\/ struct sysv_shm\t\t\tsysvshm;/' include/linux/sched.h
           sed -i '/^\tconst struct sched_class\t\*sched_class;/a \\n#ifndef __GENKSYMS__\n\tstruct sysv_sem\t\t\tsysvsem;\n\tstruct sysv_shm\t\t\tsysvshm;\n#endif\n' include/linux/sched.h
           sed -i 's/^\tunsigned long mq_bytes;\t\/\* How many bytes can be allocated to mqueue[?] \*\//\t\/\/unsigned long mq_bytes;\t\/* How many bytes can be allocated to mqueue? *\//' include/linux/sched/user.h
           sed -i '/struct ratelimit_state ratelimit;/,/ANDROID_OEM_DATA_ARRAY(1, 2);/{/^\tANDROID_KABI_RESERVE(1);/{N;N;s/^\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);/#if defined(CONFIG_POSIX_MQUEUE)\n\tANDROID_KABI_USE(1, unsigned long mq_bytes);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#else\n\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#endif/}}' include/linux/sched/user.h
-          patch -p1 --forward < "${PATCH_DIR}/ghost-task-for-midas.patch" || true
+          # Patches come from raw.githubusercontent.com as the fuse-bpf step does: a runner can
+          # come up without Patches/ materialized from the checkout, so never read it from the workspace
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/ghost-task-for-midas.patch
+          patch -p1 --forward < ghost-task-for-midas.patch || true
           grep -q '#ifndef __GENKSYMS__' include/linux/sched.h
           grep -q 'ANDROID_KABI_USE(1, unsigned long mq_bytes)' include/linux/sched/user.h
           grep -q 'ghost_task' kernel/pid.c
@@ -216,7 +218,8 @@ jobs:
           # 将 nftables per-net 状态（含 gencursor）迁到 net_generic，
           # struct net 布局与出厂一致 → 不破坏 GKI KMI，厂商模块照常加载。
           cd kernel_workspace/kernel_platform/common
-          patch -p1 --forward < "${GITHUB_WORKSPACE}/Patches/nftables-net_generic.patch"
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/nftables-net_generic.patch
+          patch -p1 --forward < nftables-net_generic.patch
           if grep -q 'struct netns_nftables.*nft;' include/net/net_namespace.h; then
             echo "!! struct net 仍嵌入 nft 字段，KMI 不兼容"
             exit 1

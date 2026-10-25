@@ -181,13 +181,15 @@ jobs:
           # 3) ghost-task-for-midas：修 oplus_bsp_midas 模块 find_task_by_vpid
           #    NULL 解引用（启用容器 namespace 后开机崩溃的真凶）
           cd kernel_workspace/kernel_platform/common
-          PATCH_DIR="${GITHUB_WORKSPACE}/Patches"
           sed -i 's/^\(\t\)struct sysv_sem\b.*sysvsem;/\1\/\/ struct sysv_sem\t\t\tsysvsem;/' include/linux/sched.h
           sed -i 's/^\(\t\)struct sysv_shm\b.*sysvshm;/\1\/\/ struct sysv_shm\t\t\tsysvshm;/' include/linux/sched.h
           sed -i '/^\tconst struct sched_class\t\*sched_class;/a \\n#ifndef __GENKSYMS__\n\tstruct sysv_sem\t\t\tsysvsem;\n\tstruct sysv_shm\t\t\tsysvshm;\n#endif\n' include/linux/sched.h
           sed -i 's/^\tunsigned long mq_bytes;\t\/\* How many bytes can be allocated to mqueue[?] \*\//\t\/\/unsigned long mq_bytes;\t\/* How many bytes can be allocated to mqueue? *\//' include/linux/sched/user.h
           sed -i '/struct ratelimit_state ratelimit;/,/ANDROID_OEM_DATA_ARRAY(1, 2);/{/^\tANDROID_KABI_RESERVE(1);/{N;N;s/^\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);/#if defined(CONFIG_POSIX_MQUEUE)\n\tANDROID_KABI_USE(1, unsigned long mq_bytes);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#else\n\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#endif/}}' include/linux/sched/user.h
-          patch -p1 --forward < "${PATCH_DIR}/ghost-task-for-midas.patch" || true
+          # Patches come from raw.githubusercontent.com as the fuse-bpf step does: a runner can
+          # come up without Patches/ materialized from the checkout, so never read it from the workspace
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/ghost-task-for-midas.patch
+          patch -p1 --forward < ghost-task-for-midas.patch || true
           # 强制校验（任一失败即构建失败，绝不产出会刷砖的内核）
           grep -q '#ifndef __GENKSYMS__' include/linux/sched.h
           grep -q 'ANDROID_KABI_USE(1, unsigned long mq_bytes)' include/linux/sched/user.h
@@ -281,7 +283,8 @@ jobs:
           # 把 nftables 的 per-net 状态放进 net_alloc() 分配的 ext_net 容器，
           # struct net 布局保持出厂一致 → 不破坏 GKI KMI，厂商 vendor_dlkm 模块照常加载。
           cd kernel_workspace/kernel_platform/common
-          patch -p1 --forward < "${GITHUB_WORKSPACE}/Patches/nftables-kmi-workaround.patch"
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/nftables-kmi-workaround.patch
+          patch -p1 --forward < nftables-kmi-workaround.patch
           # 强制校验：struct net 里不能再有 nft 字段（KMI 不兼容的标志）
           if grep -q 'struct netns_nftables.*nft;' include/net/net_namespace.h; then
             echo "!! struct net 仍嵌入 nft 字段，KMI 不兼容"
@@ -298,7 +301,10 @@ jobs:
           # N=1 即 125us）。已对 OnePlusOSS android12-5.10 源码实测 git apply --check
           # 干净应用（本仓库 kernel-src 同源）。CONFIG_USB_CONFIGFS_F_HID 出厂已是 =y。
           cd kernel_workspace/kernel_platform/common
-          patch -p1 --forward < "${GITHUB_WORKSPACE}/Patches/usb-gadget-hid-binterval.patch"
+          # Patch comes from raw.githubusercontent.com as the fuse-bpf step does: a runner can
+          # come up without Patches/ materialized from the checkout, so never read it from the workspace
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/usb-gadget-hid-binterval.patch
+          patch -p1 --forward < usb-gadget-hid-binterval.patch
           # 强制校验：属性注册与 struct 字段都在才认为成功，绝不产出没带 interval 的内核
           grep -q 'f_hid_opts_attr_interval' drivers/usb/gadget/function/f_hid.c
           grep -q 'unsigned char.*interval;' drivers/usb/gadget/function/u_hid.h
