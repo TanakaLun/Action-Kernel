@@ -289,6 +289,22 @@ jobs:
           grep -q 'struct ext_net' include/net/net_namespace.h
           echo "nftables ext_net KMI workaround applied (struct net layout unchanged)"
 
+      - name: Apply USB Arsenal f_hid bInterval patch (HID interval)
+        run: |
+          # usb-arsenal 的 `hid start --interval N` 需要 f_hid 暴露一个可写的
+          # configfs interval 属性：默认 0 保持内核编译期 bInterval（1ms），
+          # 非 0 则在 bind 时覆盖 fs/hs/ss 端点的 bInterval（高速下 2^(N-1) × 125us，
+          # N=1 即 125us）。已对 OnePlusOSS android12-5.10 源码实测 git apply --check
+          # 干净应用（本仓库 kernel-src 同源）。CONFIG_USB_CONFIGFS_F_HID 出厂已是 =y。
+          cd kernel_workspace/kernel_platform/common
+          patch -p1 --forward < "${GITHUB_WORKSPACE}/Patches/usb-gadget-hid-binterval.patch"
+          # 强制校验：属性注册与 struct 字段都在才认为成功，绝不产出没带 interval 的内核
+          grep -q 'f_hid_opts_attr_interval' drivers/usb/gadget/function/f_hid.c
+          grep -q 'unsigned char.*interval;' drivers/usb/gadget/function/u_hid.h
+          # 防御：源码分支若没开 F_HID 就补上（stock 已有，此行通常不生效）
+          grep -q '^CONFIG_USB_CONFIGFS_F_HID=' arch/arm64/configs/gki_defconfig || echo 'CONFIG_USB_CONFIGFS_F_HID=y' >> arch/arm64/configs/gki_defconfig
+          echo "USB Arsenal f_hid bInterval patch applied and verified"
+
       - name: Configure Kernel Options
         run: |
           cd kernel_workspace/kernel_platform/common
