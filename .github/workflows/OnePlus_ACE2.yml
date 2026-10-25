@@ -296,21 +296,25 @@ jobs:
           grep -q '^CONFIG_USB_CONFIGFS_F_HID=' arch/arm64/configs/gki_defconfig || echo 'CONFIG_USB_CONFIGFS_F_HID=y' >> arch/arm64/configs/gki_defconfig
           echo "USB Arsenal f_hid bInterval patch applied and verified"
 
-      - name: Apply USB Arsenal dwc3 gadget-stop + f_hid minors fixes
+      - name: Apply USB Arsenal f_hid rebind fixes and probe
         run: |
-          # 修 hand-built configfs gadget 在 Android g1 拆除后枚举卡死的 bug：
-          # dwc3_gadget_stop 现在强制清 pullups_connected/connected —— 之前
-          # pul局(0) 在 core runtime-suspended 时被跳过，残留的 pullups_connected=true
-          # 会让下一次 pullup(1) 短路、ep0 永不重新武装，主机 SET_ADDRESS 无应答
-          # （state 卡 in "default"）。f_hid 的 HIDG_MINORS 从 4 提到 16，避免
-          # check 探测 + 反复 start/stop 撑爆 minor 池（ENODEV 误报无 HID）。
+          # Linux 稳定版回溯的两条 f_hid 修复（v1.5.0 kernel-patches/5.10 的
+          # 0004/0005）：bind 时重初始化 list/spinlock/waitqueue、以及 cdev_init
+          # 一个仍被打开着的 cdev，都会在 stop→start 重绑时损坏 f_hid 状态，
+          # 复合 gadget 半坏后主机读设备描述符失败（枚举停 in default）。
+          # 顺序重要：0005 依赖 0004。
           cd kernel_workspace/kernel_platform/common
-          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/dwc3-gadget-stop-reset-pullup.patch
-          patch -p1 --forward < dwc3-gadget-stop-reset-pullup.patch
-          # 强制校验：两处修改都必须落地
-          grep -q 'pullups_connected.*= false' drivers/usb/dwc3/gadget.c
-          grep -q 'HIDG_MINORS[[:space:]]*16' drivers/usb/gadget/function/f_hid.c
-          echo "USB Arsenal dwc3 gadget-stop + f_hid minors patches applied and verified"
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/0004-f_hid-move-list-inits.patch
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/0005-f_hid-dont-cdev-init.patch
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/usba-probe-f_hid.patch
+          patch -p1 --forward < 0004-f_hid-move-list-inits.patch
+          patch -p1 --forward < 0005-f_hid-dont-cdev-init.patch
+          patch -p1 --forward < usba-probe-f_hid.patch
+          # 强制校验：cdev 改为堆分配 + 队列初始化移进 alloc + 探针落地
+          grep -q 'cdev_alloc' drivers/usb/gadget/function/f_hid.c
+          grep -q 'init_waitqueue_head(&hidg->write_queue)' drivers/usb/gadget/function/f_hid.c
+          grep -q 'usba probe: hidg unbind' drivers/usb/gadget/function/f_hid.c
+          echo "USB Arsenal f_hid rebind fixes (0004, 0005) + probe applied and verified"
 
       - name: Configure Kernel Options
         run: |
