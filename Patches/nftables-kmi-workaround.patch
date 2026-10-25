@@ -1,0 +1,125 @@
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 82cfc5006..d4fd6c4e4 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -142,9 +142,6 @@ struct net {
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	struct netns_ct		ct;
+ #endif
+-#if defined(CONFIG_NF_TABLES) || defined(CONFIG_NF_TABLES_MODULE)
+-	struct netns_nftables	nft;
+-#endif
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+ 	struct netns_nf_frag	nf_frag;
+ 	struct ctl_table_header *nf_frag_frags_hdr;
+@@ -196,6 +193,34 @@ struct net {
+ /* Init's network namespace */
+ extern struct net init_net;
+ 
++/*
++ * KMI workaround: struct net is part of the frozen vendor ABI, so the
++ * nftables per-net data cannot be embedded in it (adding the field shifts
++ * net->gen and everything after it, breaking genksyms CRCs of ~2700
++ * exported symbols and therefore every prebuilt vendor module).
++ *
++ * Keep it in a container allocated by net_alloc() instead, the same
++ * approach AOSP uses for CONFIG_NETFILTER_FAMILY_BRIDGE.
++ */
++struct ext_net {
++	struct net net;
++#if IS_ENABLED(CONFIG_NF_TABLES)
++	struct netns_nftables nft;
++#endif
++};
++
++#if IS_ENABLED(CONFIG_NF_TABLES)
++extern struct netns_nftables init_net_nft;
++
++static inline struct netns_nftables *nft_netns(const struct net *net)
++{
++	if (net == &init_net)
++		return &init_net_nft;
++	return (struct netns_nftables *)
++		&container_of(net, const struct ext_net, net)->nft;
++}
++#endif
++
+ #ifdef CONFIG_NET_NS
+ struct net *copy_net_ns(unsigned long flags, struct user_namespace *user_ns,
+ 			struct net *old_net);
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index cb13e604d..c01e71d8f 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -1349,7 +1349,7 @@ void nft_trace_notify(struct nft_traceinfo *info);
+  */
+ static inline unsigned int nft_gencursor_next(const struct net *net)
+ {
+-	return net->nft.gencursor + 1 == 1 ? 1 : 0;
++	return nft_netns(net)->gencursor + 1 == 1 ? 1 : 0;
+ }
+ 
+ static inline u8 nft_genmask_next(const struct net *net)
+@@ -1360,7 +1360,7 @@ static inline u8 nft_genmask_next(const struct net *net)
+ static inline u8 nft_genmask_cur(const struct net *net)
+ {
+ 	/* Use READ_ONCE() to prevent refetching the value for atomicity */
+-	return 1 << READ_ONCE(net->nft.gencursor);
++	return 1 << READ_ONCE(nft_netns(net)->gencursor);
+ }
+ 
+ #define NFT_GENMASK_ANY		((1 << 0) | (1 << 1))
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index b950a5f84..584768f93 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -1111,7 +1111,7 @@ static int __init net_ns_init(void)
+ 	struct net_generic *ng;
+ 
+ #ifdef CONFIG_NET_NS
+-	net_cachep = kmem_cache_create("net_namespace", sizeof(struct net),
++	net_cachep = kmem_cache_create("net_namespace", sizeof(struct ext_net),
+ 					SMP_CACHE_BYTES,
+ 					SLAB_PANIC|SLAB_ACCOUNT, NULL);
+ 
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 04fda8c14..d1b60575c 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -29,6 +29,14 @@
+ 
+ unsigned int nf_tables_net_id __read_mostly;
+ 
++/* KMI workaround: nftables state for init_net, which is not allocated
++ * through net_alloc() and therefore has no struct ext_net container.
++ * Exported so that nf_tables.ko (and expression modules using the
++ * nft_genmask_* inlines) can resolve it.
++ */
++struct netns_nftables init_net_nft;
++EXPORT_SYMBOL_GPL(init_net_nft);
++
+ static LIST_HEAD(nf_tables_expressions);
+ static LIST_HEAD(nf_tables_objects);
+ static LIST_HEAD(nf_tables_flowtables);
+@@ -8629,7 +8637,7 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
+ 	gc_seq = nft_gc_seq_begin(nft_net);
+ 
+ 	/* step 3. Start new generation, rules_gen_X now in use. */
+-	net->nft.gencursor = nft_gencursor_next(net);
++	nft_netns(net)->gencursor = nft_gencursor_next(net);
+ 
+ 	list_for_each_entry_safe(trans, next, &nft_net->commit_list, list) {
+ 		nf_tables_commit_audit_collect(&adl, trans->ctx.table,
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index b0d711d49..7e3147ff5 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -209,7 +209,7 @@ nft_do_chain(struct nft_pktinfo *pkt, void *priv)
+ 	struct nft_regs regs = {};
+ 	unsigned int stackptr = 0;
+ 	struct nft_jumpstack jumpstack[NFT_JUMP_STACK_SIZE];
+-	bool genbit = READ_ONCE(net->nft.gencursor);
++	bool genbit = READ_ONCE(nft_netns(net)->gencursor);
+ 	struct nft_traceinfo info;
+ 
+ 	info.trace = false;

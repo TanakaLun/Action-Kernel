@@ -273,6 +273,22 @@ jobs:
           curl -sSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh -o setup.sh
           bash setup.sh
 
+      - name: Apply nftables KMI workaround patch (ext_net, built-in)
+        if: ${{ inputs.nftables }}
+        run: |
+          # 与 Ace2_NFT_BetterNet_CNS.zip 同款方案（已在设备实测）：
+          # 把 nftables 的 per-net 状态放进 net_alloc() 分配的 ext_net 容器，
+          # struct net 布局保持出厂一致 → 不破坏 GKI KMI，厂商 vendor_dlkm 模块照常加载。
+          cd kernel_workspace/kernel_platform/common
+          patch -p1 --forward < "${GITHUB_WORKSPACE}/Patches/nftables-kmi-workaround.patch"
+          # 强制校验：struct net 里不能再有 nft 字段（KMI 不兼容的标志）
+          if grep -q 'struct netns_nftables.*nft;' include/net/net_namespace.h; then
+            echo "!! struct net 仍嵌入 nft 字段，KMI 不兼容"
+            exit 1
+          fi
+          grep -q 'struct ext_net' include/net/net_namespace.h
+          echo "nftables ext_net KMI workaround applied (struct net layout unchanged)"
+
       - name: Configure Kernel Options
         run: |
           cd kernel_workspace/kernel_platform/common
@@ -366,60 +382,61 @@ jobs:
           fi
           
           if [ "${{ inputs.nftables }}" == "true" ]; then
+            # ext_net KMI workaround 内置配置（与 Patches/nftables-kmi-workaround.patch 配套）：
+            # per-net 状态在 ext_net 容器里，struct net 布局与出厂一致 → 不破坏 KMI
+            # 全部表达式 =y 内置，六大族全开；不含 bridge（stock 无 hooks_bridge）
+            # 与 synproxy（enum nf_ct_ext_id）；含 nf_log 使 `log` 表达式可用
             {
-             # echo "CONFIG_NETFILTER=y"
-             # echo "CONFIG_NETFILTER_NETLINK=y"
-             # echo "CONFIG_NETFILTER_NETLINK_LOG=y"
-             # echo "CONFIG_NF_CONNTRACK=y"
-             # echo "CONFIG_NF_CT_NETLINK=y"
-             # echo "CONFIG_NF_CONNTRACK_EVENTS=y"
-             # echo "CONFIG_NF_CONNTRACK_TIMEOUT=y"
-             # echo "CONFIG_NF_CONNTRACK_TIMESTAMP=y"
-
              echo "CONFIG_NF_TABLES=y"
              echo "CONFIG_NF_TABLES_INET=y"
              echo "CONFIG_NF_TABLES_IPV4=y"
              echo "CONFIG_NF_TABLES_IPV6=y"
-             # echo "CONFIG_NF_TABLES_NETDEV=y"
-             
-             # echo "CONFIG_NFT_SET_RBTREE=y"
-             # echo "CONFIG_NFT_SET_HASH=y"
-             # echo "CONFIG_NFT_SET_BITMAP=y"
-             # echo "CONFIG_NFT_SET_PIPAPO=y"
-
-             # echo "CONFIG_NFT_NUMGEN=y"
-             # echo "CONFIG_NFT_CT=y"
-             # echo "CONFIG_NFT_LIMIT=y"
-             # echo "CONFIG_NFT_COUNTER=y"
-             # echo "CONFIG_NFT_LOG=y"
-             # echo "CONFIG_NFT_QUOTA=y"
-             # echo "CONFIG_NFT_REJECT=y"
-             # echo "CONFIG_NFT_REJECT_INET=y"
-             # echo "CONFIG_NFT_META=y"
-             # echo "CONFIG_NFT_RT=y"
-             # echo "CONFIG_NFT_EXHDR=y"
-             # echo "CONFIG_NFT_FIB=y"
-             # echo "CONFIG_NFT_FIB_INET=y"
-
-             # echo "CONFIG_NF_NAT=y"
-             # echo "CONFIG_NF_NAT_IPV4=y"
-             # echo "CONFIG_NF_NAT_IPV6=y"
-             # echo "CONFIG_NF_NAT_MASQUERADE=y"
-             # echo "CONFIG_NF_NAT_REDIRECT=y"
-             
-             echo "CONFIG_NFT_NAT=y"
+             echo "CONFIG_NF_TABLES_ARP=y"
+             echo "CONFIG_NF_TABLES_NETDEV=y"
+             # flowtable
+             echo "CONFIG_NF_FLOW_TABLE=y"
+             echo "CONFIG_NF_FLOW_TABLE_INET=y"
+             echo "CONFIG_NF_FLOW_TABLE_IPV4=y"
+             echo "CONFIG_NF_FLOW_TABLE_IPV6=y"
+             echo "CONFIG_NFT_FLOW_OFFLOAD=y"
+             # kernel packet logging (syslog nf_loggers, needed by `log`)
+             echo "CONFIG_NF_LOG_COMMON=y"
+             echo "CONFIG_NF_LOG_ARP=y"
+             echo "CONFIG_NF_LOG_IPV4=y"
+             echo "CONFIG_NF_LOG_IPV6=y"
+             echo "CONFIG_NF_LOG_NETDEV=y"
+             # expressions
+             echo "CONFIG_NFT_NUMGEN=y"
+             echo "CONFIG_NFT_CT=y"
+             echo "CONFIG_NFT_COUNTER=y"
+             echo "CONFIG_NFT_CONNLIMIT=y"
+             echo "CONFIG_NFT_LOG=y"
+             echo "CONFIG_NFT_LIMIT=y"
              echo "CONFIG_NFT_MASQ=y"
              echo "CONFIG_NFT_REDIR=y"
-             echo "CONFIG_NFT_CHAIN_NAT_IPV4=y"
-             echo "CONFIG_NFT_CHAIN_NAT_IPV6=y"
-             echo "CONFIG_NFT_CHAIN_NAT_INET=y"
-
+             echo "CONFIG_NFT_NAT=y"
+             echo "CONFIG_NFT_TUNNEL=y"
              echo "CONFIG_NFT_OBJREF=y"
              echo "CONFIG_NFT_QUEUE=y"
-             echo "CONFIG_NFT_TUNNEL=y"
+             echo "CONFIG_NFT_QUOTA=y"
+             echo "CONFIG_NFT_REJECT=y"
+             echo "CONFIG_NFT_REJECT_INET=y"
+             echo "CONFIG_NFT_REJECT_IPV4=y"
+             echo "CONFIG_NFT_REJECT_IPV6=y"
+             echo "CONFIG_NFT_COMPAT=y"
+             echo "CONFIG_NFT_HASH=y"
+             echo "CONFIG_NFT_FIB_IPV4=y"
+             echo "CONFIG_NFT_FIB_IPV6=y"
+             echo "CONFIG_NFT_FIB_INET=y"
+             echo "CONFIG_NFT_FIB_NETDEV=y"
+             echo "CONFIG_NFT_XFRM=y"
              echo "CONFIG_NFT_SOCKET=y"
              echo "CONFIG_NFT_OSF=y"
              echo "CONFIG_NFT_TPROXY=y"
+             echo "CONFIG_NFT_DUP_IPV4=y"
+             echo "CONFIG_NFT_DUP_IPV6=y"
+             echo "CONFIG_NFT_DUP_NETDEV=y"
+             echo "CONFIG_NFT_FWD_NETDEV=y"
             } >> ./arch/arm64/configs/gki_defconfig
           fi
 

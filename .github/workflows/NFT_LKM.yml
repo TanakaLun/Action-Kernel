@@ -1,0 +1,553 @@
+name: OnePlus Ace2 nftables LKM Build
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      kname:
+        description: "改变内核名称"
+        required: true
+        type: string
+        default: 'Mortis'
+      source:
+        description: "源码来源"
+        required: true
+        type: choice
+        options:
+          - 'Xiaomichael'
+          - 'OnePlusOSS'
+        default: 'OnePlusOSS'
+      ksu_type:
+        description: "KSU类型选择"
+        required: true
+        type: choice
+        options:
+          - 'none'
+          - 'Official'
+          - 'ReSukiSU'
+          - 'YukinoSU'
+          - 'MKSU'
+          - 'MamboSU'
+        default: 'none'
+      mm:
+        description: "为ReSukiSU启用多管理器支持"
+        required: false
+        type: boolean
+        default: false
+      susfs:
+        description: "启用SUSFS"
+        required: false
+        type: boolean
+        default: false
+      sus_branch:
+        descripiton: "SUS来源"
+        required: false
+        type: choice
+        options:
+          - '西蒙庞克'
+          - 'susfs4oki'
+        default: '西蒙庞克'
+      kpm:
+        description: "启用KPM"
+        required: false
+        type: boolean
+        default: false
+      better_net:
+        description: "启用网络功能增强配置"
+        required: false
+        type: boolean
+        default: true
+      baseband_guard:
+        description: "启用内核级基带保护"
+        required: false
+        type: boolean
+        default: false
+      lz4kd:
+        description: "启用lz4kd压缩算法"
+        required: false
+        type: boolean
+        default: false
+      ssg:
+        description: "启用SSG IO算法"
+        required: false
+        type: boolean
+        default: false
+      bbr:
+        description: "启用BBR算法"
+        required: false
+        type: boolean
+        default: false
+      fuse_bpf:
+        description: "编译前动态应用Fuse BPF backport"
+        required: false
+        type: boolean
+        default: true
+      container_ns:
+        description: "启用容器运行时所需namespace (PID/IPC/USER/CGROUP) - kurumi-containerd/lxc/docker"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    name: OnePlus Ace2 nftables LKM Build
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_MAXSIZE: "8G"
+      ANDROID_VERSION: "android12"
+      KERNEL_VERSION: "5.10"
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Cache Env
+        run: |
+          echo "Setting up cache directory..."
+          echo "CCACHE_DIR=$HOME/.ccache_oneplus_ace2_kernel" >> $GITHUB_ENV
+          mkdir -p "$HOME/.ccache_oneplus_ace2_kernel"
+
+      - name: Maximize Build Space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 4096
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential libncurses-dev libssl-dev bc flex bison libelf-dev tree dos2unix ccache python3 git curl liblz4-tool zlib1g-dev libxml2-utils rsync unzip gawk cpio lz4 lzop pahole dwarves coreutils procps
+
+      - name: Restore ccache (With SUSFS)
+        if: ${{ inputs.susfs }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-lkm-susfs
+          restore-keys: |
+            ccache-${{ runner.os }}-oneplus_ace2-lkm-susfs
+
+      - name: Restore ccache (Without SUSFS)
+        if: ${{ !inputs.susfs }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-oneplus_ace2-lkm-nosusfs
+          restore-keys: |
+            ccache-${{ runner.os }}-oneplus_ace2-lkm-nosusfs
+
+      - name: Initialize ccache
+        run: |
+          mkdir -p "${{ env.CCACHE_DIR }}"
+          ccache -M ${{ env.CCACHE_MAXSIZE }}
+          ccache -s
+
+      - name: Configure Git and repo
+        run: |
+          git config --global user.email "bot@kernelsu.org"
+          git config --global user.name "KernelSUBot"
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+          chmod a+x ~/repo
+          sudo mv ~/repo /usr/local/bin/repo
+
+      - name: Initialize repo and sync
+        run: |
+          mkdir kernel_workspace && cd kernel_workspace
+          repo init -u https://github.com/${{ inputs.source }}/kernel_manifest.git -b oneplus/sm8475 -m oneplus_ace2_b.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
+          repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
+
+          for dir in kernel_platform/common kernel_platform/msm-kernel; do
+            rm -f "$dir/android/abi_gki_protected_exports_"* 2>/dev/null || true
+          done
+         
+      - name: Apply Droidspaces kernel patches (5.10 SYSVIPC ABI + midas fix)
+        if: ${{ inputs.container_ns }}
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          PATCH_DIR="${GITHUB_WORKSPACE}/Patches"
+          sed -i 's/^\(\t\)struct sysv_sem\b.*sysvsem;/\1\/\/ struct sysv_sem\t\t\tsysvsem;/' include/linux/sched.h
+          sed -i 's/^\(\t\)struct sysv_shm\b.*sysvshm;/\1\/\/ struct sysv_shm\t\t\tsysvshm;/' include/linux/sched.h
+          sed -i '/^\tconst struct sched_class\t\*sched_class;/a \\n#ifndef __GENKSYMS__\n\tstruct sysv_sem\t\t\tsysvsem;\n\tstruct sysv_shm\t\t\tsysvshm;\n#endif\n' include/linux/sched.h
+          sed -i 's/^\tunsigned long mq_bytes;\t\/\* How many bytes can be allocated to mqueue[?] \*\//\t\/\/unsigned long mq_bytes;\t\/* How many bytes can be allocated to mqueue? *\//' include/linux/sched/user.h
+          sed -i '/struct ratelimit_state ratelimit;/,/ANDROID_OEM_DATA_ARRAY(1, 2);/{/^\tANDROID_KABI_RESERVE(1);/{N;N;s/^\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);/#if defined(CONFIG_POSIX_MQUEUE)\n\tANDROID_KABI_USE(1, unsigned long mq_bytes);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#else\n\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#endif/}}' include/linux/sched/user.h
+          patch -p1 --forward < "${PATCH_DIR}/ghost-task-for-midas.patch" || true
+          grep -q '#ifndef __GENKSYMS__' include/linux/sched.h
+          grep -q 'ANDROID_KABI_USE(1, unsigned long mq_bytes)' include/linux/sched/user.h
+          grep -q 'ghost_task' kernel/pid.c
+          echo "Droidspaces 5.10 patches applied and verified"
+
+      - name: Setup KSU
+        if: ${{ inputs.ksu_type != 'none' }}
+        run: |
+          cd kernel_workspace/kernel_platform
+          
+          if [ "${{ inputs.ksu_type }}" == "Official" ]; then          
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
+          elif [ "${{ inputs.ksu_type }}" == "MKSU" ]; then
+            curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
+          elif [ "${{ inputs.ksu_type }}" == "YukinoSU" ]; then
+            curl -LSs "https://raw.githubusercontent.com/TanakaLun/ReSukiSU/main/kernel/setup.sh" | bash -s main
+          elif [ "${{ inputs.ksu_type }}" == "MamboSU" ]; then
+            if [ "${{ inputs.susfs }}" == "true" ]; then
+              curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/susfs-rksu-master/kernel/setup.sh" | bash -s susfs-rksu-master
+            else
+              curl -LSs "https://raw.githubusercontent.com/RapliVx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s master
+            fi
+
+      - name: Apply Fuse BPF backport
+        if: ${{ inputs.fuse_bpf }}
+        run: |
+          wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Tools/apply_fuse_bpf.sh
+          wget https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/fuse-bpf-backport.patch
+          chmod +x apply_fuse_bpf.sh fuse-bpf-backport.patch
+          ./apply_fuse_bpf.sh kernel_workspace/kernel_platform/common
+
+      - name: Apply nftables net_generic patch (KMI-safe)
+        run: |
+          # 将 nftables per-net 状态（含 gencursor）迁到 net_generic，
+          # struct net 布局与出厂一致 → 不破坏 GKI KMI，厂商模块照常加载。
+          cd kernel_workspace/kernel_platform/common
+          patch -p1 --forward < "${GITHUB_WORKSPACE}/Patches/nftables-net_generic.patch"
+          if grep -q 'struct netns_nftables.*nft;' include/net/net_namespace.h; then
+            echo "!! struct net 仍嵌入 nft 字段，KMI 不兼容"
+            exit 1
+          fi
+          echo "nftables net_generic patch applied (struct net layout unchanged)"
+
+      - name: Setup Patches
+        if: ${{ inputs.ksu_type != 'none' || inputs.susfs || inputs.lz4kd }}
+        run: |
+          cd kernel_workspace
+
+          if [ "${{ inputs.susfs }}" == "true" ]; then
+            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+            git clone https://github.com/Xiaomichael/kernel_patches.git
+          fi
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          fi
+          
+          cd kernel_platform
+          
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
+            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
+            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
+            cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
+          fi
+          
+          cd ./common
+
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4kd.patch ./
+            patch -p1 -F 3 < lz4kd.patch || true
+            cp ../../SukiSU_patch/other/zram/zram_patch/5.10/lz4k_oplus.patch ./
+            patch -p1 -F 3 < lz4k_oplus.patch || true
+          fi
+      
+          if [ "${{ inputs.susfs }}" == "true" ]; then
+            cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./
+            patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
+            cp ../../susfs4ksu/kernel_patches/fs/* ./fs/
+            cp ../../susfs4ksu/kernel_patches/include/linux/* ./include/linux/
+          elif [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+            cp ../../kernel_patches/sukisu/scope_min_manual_hooks_v1.9.patch ./
+            patch -p1 -F 3 < scope_min_manual_hooks_v1.9.patch
+          fi
+
+      - name: Setup Baseband-guard
+        if: ${{ inputs.baseband_guard && inputs.kpm == false && inputs.ksu_type != 'none' }}
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          curl -sSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh -o setup.sh
+          bash setup.sh
+
+      - name: Configure Kernel Options
+        run: |
+          cd kernel_workspace/kernel_platform/common
+
+          if [ "${{ inputs.ksu_type }}" == "ReSukiSU" ] || [ "${{ inputs.ksu_type }}" == "Official" ]; then
+            echo "CONFIG_KSU=y" >> ./arch/arm64/configs/gki_defconfig
+            if [ "${{ inputs.mm }}" == "true" ]; then
+              echo "CONFIG_KSU_MULTI_MANAGER_SUPPORT=y" >> ./arch/arm64/configs/gki_defconfig
+            fi
+            
+            if [ "${{ inputs.kpm }}" == "true" ] && [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+              echo "CONFIG_KPM=y" >> ./arch/arm64/configs/gki_defconfig
+            fi
+            
+            if [ "${{ inputs.susfs }}" == "true" ]; then
+              echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./arch/arm64/configs/gki_defconfig
+            elif [ "${{ inputs.susfs }}" == "false" ] && [ "${{ inputs.ksu_type }}" == "ReSukiSU" ]; then
+              echo "CONFIG_KSU_SUSFS=n" >> ./arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/gki_defconfig
+            fi
+          fi
+          
+          echo "CONFIG_TMPFS_XATTR=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./arch/arm64/configs/gki_defconfig
+
+          if [ "${{ inputs.baseband_guard }}" == "true" ] && [ "${{ inputs.kpm }}" == "false" ] && [ "${{ inputs.ksu_type }}" != "none" ]; then
+            echo 'CONFIG_BBG=y' >> ./arch/arm64/configs/gki_defconfig
+            echo 'CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor,bpf,baseband_guard"' >> ./arch/arm64/configs/gki_defconfig
+          fi          
+          
+          if [ "${{ inputs.bbr }}" == "true" ]; then
+            echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_BBR=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_NET_SCH_FQ=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_BIC=n" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_WESTWOOD=n" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_TCP_CONG_HTCP=n" >> ./arch/arm64/configs/gki_defconfig
+          fi
+
+           if [ "${{ inputs.fuse_bpf }}" == "true" ]; then
+             echo "CONFIG_BPF=y" >> ./arch/arm64/configs/gki_defconfig
+             echo "CONFIG_FUSE_BPF=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          if [ "${{ inputs.lz4kd }}" == "true" ]; then
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          if [ "${{ inputs.ssg }}" == "true" ]; then
+            echo "CONFIG_MQ_IOSCHED_SSG=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_MQ_IOSCHED_SSG_CGROUP=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          if [ "${{ inputs.better_net }}" == "true" ]; then
+            {
+             echo "CONFIG_BPF_STREAM_PARSER=y"
+             echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y"
+             echo "CONFIG_NETFILTER_XT_SET=y"
+             echo "CONFIG_IP_SET=y"
+             echo "CONFIG_IP_SET_MAX=65534"
+             echo "CONFIG_IP_SET_BITMAP_IP=y"
+             echo "CONFIG_IP_SET_BITMAP_IPMAC=y"
+             echo "CONFIG_IP_SET_BITMAP_PORT=y"
+             echo "CONFIG_IP_SET_HASH_IP=y"
+             echo "CONFIG_IP_SET_HASH_IPMARK=y"
+             echo "CONFIG_IP_SET_HASH_IPPORT=y"
+             echo "CONFIG_IP_SET_HASH_IPPORTIP=y"
+             echo "CONFIG_IP_SET_HASH_IPPORTNET=y"
+             echo "CONFIG_IP_SET_HASH_IPMAC=y"
+             echo "CONFIG_IP_SET_HASH_MAC=y"
+             echo "CONFIG_IP_SET_HASH_NETPORTNET=y"
+             echo "CONFIG_IP_SET_HASH_NET=y"
+             echo "CONFIG_IP_SET_HASH_NETNET=y"
+             echo "CONFIG_IP_SET_HASH_NETPORT=y"
+             echo "CONFIG_IP_SET_HASH_NETIFACE=y"
+             echo "CONFIG_IP_SET_LIST_SET=y"
+             echo "CONFIG_IP6_NF_NAT=y"
+             echo "CONFIG_IP6_NF_TARGET_MASQUERADE=y"
+            } >> ./arch/arm64/configs/gki_defconfig
+          fi
+          
+          # nftables 始终按 LKM（模块）方式配置，与 Patches/nftables-net_generic.patch 配套。
+          # Image 不含 nft；nft-lkm.tar.gz 提供全部模块 + 安装脚本。
+          {
+           echo "CONFIG_NF_TABLES=m"
+           echo "CONFIG_NF_TABLES_INET=y"
+           echo "CONFIG_NF_TABLES_IPV4=y"
+           echo "CONFIG_NF_TABLES_IPV6=y"
+           echo "CONFIG_NF_TABLES_ARP=y"
+           echo "CONFIG_NF_TABLES_NETDEV=y"
+           # flowtable
+           echo "CONFIG_NF_FLOW_TABLE=m"
+           echo "CONFIG_NF_FLOW_TABLE_INET=m"
+           echo "CONFIG_NF_FLOW_TABLE_IPV4=m"
+           echo "CONFIG_NF_FLOW_TABLE_IPV6=m"
+           echo "CONFIG_NFT_FLOW_OFFLOAD=m"
+           # kernel packet logging (syslog nf_loggers, needed by `log`)
+           echo "CONFIG_NF_LOG_COMMON=m"
+           echo "CONFIG_NF_LOG_ARP=m"
+           echo "CONFIG_NF_LOG_IPV4=m"
+           echo "CONFIG_NF_LOG_IPV6=m"
+           echo "CONFIG_NF_LOG_NETDEV=m"
+           # expressions
+           echo "CONFIG_NFT_NUMGEN=m"
+           echo "CONFIG_NFT_CT=m"
+           echo "CONFIG_NFT_COUNTER=m"
+           echo "CONFIG_NFT_CONNLIMIT=m"
+           echo "CONFIG_NFT_LOG=m"
+           echo "CONFIG_NFT_LIMIT=m"
+           echo "CONFIG_NFT_MASQ=m"
+           echo "CONFIG_NFT_REDIR=m"
+           echo "CONFIG_NFT_NAT=m"
+           echo "CONFIG_NFT_TUNNEL=m"
+           echo "CONFIG_NFT_OBJREF=m"
+           echo "CONFIG_NFT_QUEUE=m"
+           echo "CONFIG_NFT_QUOTA=m"
+           echo "CONFIG_NFT_REJECT=m"
+           echo "CONFIG_NFT_REJECT_INET=m"
+           echo "CONFIG_NFT_REJECT_IPV4=m"
+           echo "CONFIG_NFT_REJECT_IPV6=m"
+           echo "CONFIG_NFT_COMPAT=m"
+           echo "CONFIG_NFT_HASH=m"
+           echo "CONFIG_NFT_FIB_IPV4=m"
+           echo "CONFIG_NFT_FIB_IPV6=m"
+           echo "CONFIG_NFT_FIB_INET=m"
+           echo "CONFIG_NFT_FIB_NETDEV=m"
+           echo "CONFIG_NFT_XFRM=m"
+           echo "CONFIG_NFT_SOCKET=m"
+           echo "CONFIG_NFT_OSF=m"
+           echo "CONFIG_NFT_TPROXY=m"
+           echo "CONFIG_NFT_DUP_IPV4=m"
+           echo "CONFIG_NFT_DUP_IPV6=m"
+           echo "CONFIG_NFT_DUP_NETDEV=m"
+           echo "CONFIG_NFT_FWD_NETDEV=m"
+          } >> ./arch/arm64/configs/gki_defconfig
+
+          if [ "${{ inputs.container_ns }}" == "true" ]; then
+            echo "CONFIG_SYSVIPC=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_POSIX_MQUEUE=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_PID_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_USER_NS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_NAMESPACES=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_DEVTMPFS=y" >> ./arch/arm64/configs/gki_defconfig
+            echo "CONFIG_CGROUP_NS=y" >> ./arch/arm64/configs/gki_defconfig
+          fi
+
+      - name: Other tasks
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          sed -i 's/^CONFIG_LTO=n/CONFIG_LTO=y/' ./arch/arm64/configs/gki_defconfig
+          sed -i 's/^CONFIG_LTO_CLANG_FULL=y/CONFIG_LTO_CLANG_THIN=y/' ./arch/arm64/configs/gki_defconfig
+          sed -i 's/^CONFIG_LTO_CLANG_NONE=y/CONFIG_LTO_CLANG_THIN=y/' ./arch/arm64/configs/gki_defconfig
+          grep -q '^CONFIG_LTO_CLANG_THIN=y' ./arch/arm64/configs/gki_defconfig || echo 'CONFIG_LTO_CLANG_THIN=y' >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_HEADERS_INSTALL=n" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./arch/arm64/configs/gki_defconfig
+          sed -i 's/check_defconfig//' ./build.config.gki
+
+      - name: Rename make name
+        run: |
+          cd kernel_workspace/kernel_platform
+          sed -i 's/-4k//g' ./common/arch/arm64/configs/gki_defconfig
+          sed -i 's/ -dirty//g' ./common/scripts/setlocalversion ./msm-kernel/scripts/setlocalversion ./external/dtc/scripts/setlocalversion
+
+          sed -i '$s/echo "$res"/echo "-android12-9$res"/' ./common/scripts/setlocalversion ./msm-kernel/scripts/setlocalversion
+          
+          sed -i '/#ifdef OPLUS_FEATURE_BUILD/,/#endif OPLUS_FEATURE_BUILD/ {
+            s/local oki_infix=o/local oki_infix=${{ inputs.kname }}/
+          }' ./common/scripts/setlocalversion
+          
+      - name: Build Kernel
+        run: |
+          export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin:$PATH"
+          export PATH="/usr/lib/ccache:$PATH"
+          if [ "${{ inputs.ksu_type }}" == "YukinoSU" ]; then
+            export KSU_EXPECTED_SIZE=0x3c2
+            export KSU_EXPECTED_HASH=afb84862488449c4d05573fc5b1debd5c09167fc8f08521368c0e731f2792c35
+          fi
+          sudo apt install libelf-dev
+          cd kernel_workspace/kernel_platform/common
+          make -j$(nproc --all) LLVM_IAS=1 LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out gki_defconfig all modules
+          ccache -s
+
+      - name: Make AnyKernel3
+        run: |
+          git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1
+          rm -rf ./AnyKernel3/.git
+          mkdir -p kernel_workspace/kernel_platform/out/Final-Image-Find/
+          image_path=$(find "./kernel_workspace/kernel_platform/common/out/" -name "Image" | head -n 1)
+          if [ -z "$image_path" ]; then
+            image_path=$(find "./kernel_workspace/kernel_platform/out/" -name "Image" | head -n 1)
+          fi
+          if [ -n "$image_path" ]; then
+            cp "$image_path" ./AnyKernel3/Image
+            cp "$image_path" kernel_workspace/kernel_platform/out/Final-Image-Find/Image
+          fi
+    
+      - name: Patch Kernel Image (KPM)
+        if: ${{ inputs.kpm }}
+        run: |
+          cd kernel_workspace/kernel_platform/out/Final-Image-Find
+          curl -LO https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/download/0.12.2/patch_linux
+          chmod +x patch_linux
+          ./patch_linux
+          mv oImage Image
+          cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
+
+      - name: Package nftables LKM modules
+        run: |
+          bash $GITHUB_WORKSPACE/Tools/package_nft_lkm.sh \
+            kernel_workspace/kernel_platform/common \
+            kernel_workspace/kernel_platform/common/out \
+            "$GITHUB_WORKSPACE"
+          mv "$GITHUB_WORKSPACE/nft-lkm.tar.gz" ./nft-lkm.tar.gz
+
+      - name: Extract Linux Version from Image
+        run: |
+          IMAGE_PATH="./AnyKernel3/Image"
+          KERNEL_VERSION=$(strings "$IMAGE_PATH" | grep "Linux version" | tail -n +2 | head -n 1 | awk '{print $3}')
+          echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+    
+      - name: Upload AnyKernel3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ace2_${{ inputs.ksu_type == 'none' && '' || inputs.ksu_type }}${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}_NFTLKM
+          path: ./AnyKernel3/*
+          
+      - name: Upload nftables LKM modules
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ace2_nft-lkm
+          path: ./nft-lkm.tar.gz
+
+      - name: Get bot script
+        uses: actions/checkout@v4
+        with:
+          path: bot
+
+      - name: Upload to telegram group
+        run: |
+          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
+            cd AnyKernel3
+            FEATURE_SUFFIX="${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}_NFTLKM"
+            KSU_TYPE="${{ inputs.ksu_type }}"
+            if [ "$KSU_TYPE" == "none" ]; then
+              FILENAME_PREFIX="Ace2"
+            else
+              FILENAME_PREFIX="Ace2_${KSU_TYPE}"
+            fi
+            zip -q -r "../${FILENAME_PREFIX}${FEATURE_SUFFIX}.zip" ./*
+            cd ..
+            pip3 install telethon
+            python3 ./bot/Tools/bot.py "./${FILENAME_PREFIX}${FEATURE_SUFFIX}.zip"
+          fi
+        env:
+          CHATID: ${{secrets.CHATID}}
+          BOT_TOKEN: ${{secrets.BOT_TOKEN}}
+          MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
+          DEVICE: "OnePlus Ace 2"
+          KERNEL_VERSION: ${{ env.KERNEL_VERSION }}
+          KSU_TYPE: ${{ inputs.ksu_type }}
+          SUSFS: ${{ inputs.susfs }}
+          KPM: ${{ inputs.kpm }}
+          BETTER_NET: ${{ inputs.better_net }}
+          BASEBAND_GUARD: ${{ inputs.baseband_guard }}
+          LZ4KD: ${{ inputs.lz4kd }}
+          SSG: ${{ inputs.ssg }}
+          BBR: ${{ inputs.bbr }}
+          CONTAINER_NS: ${{ inputs.container_ns }}

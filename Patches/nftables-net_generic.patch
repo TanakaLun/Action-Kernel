@@ -1,0 +1,221 @@
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 82cfc5006..31515bf28 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -142,9 +142,6 @@ struct net {
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	struct netns_ct		ct;
+ #endif
+-#if defined(CONFIG_NF_TABLES) || defined(CONFIG_NF_TABLES_MODULE)
+-	struct netns_nftables	nft;
+-#endif
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+ 	struct netns_nf_frag	nf_frag;
+ 	struct ctl_table_header *nf_frag_frags_hdr;
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index cb13e604d..b67bd2a6a 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -1347,9 +1347,36 @@ void nft_trace_notify(struct nft_traceinfo *info);
+  * it is set inactive in the next generation. After committing the ruleset,
+  * the objects are removed.
+  */
++/*
++ * Per-net nftables state.  The generation counter lives here (net_generic)
++ * instead of inside struct net: with CONFIG_NF_TABLES=m this keeps the KMI
++ * layout of struct net byte-identical to a kernel without nftables, so the
++ * module set can be loaded into the stock kernel via plain insmod.
++ */
++struct nftables_pernet {
++	struct list_head	tables;
++	struct list_head	commit_list;
++	struct list_head	binding_list;
++	struct list_head	module_list;
++	struct list_head	notify_list;
++	struct mutex		commit_mutex;
++	u64			tstamp;
++	unsigned int		base_seq;
++	u8			validate_state;
++	unsigned int		gc_seq;
++	u8			gencursor;
++};
++
++extern unsigned int nf_tables_net_id;
++
++static inline struct nftables_pernet *nft_pernet(const struct net *net)
++{
++	return net_generic(net, nf_tables_net_id);
++}
++
+ static inline unsigned int nft_gencursor_next(const struct net *net)
+ {
+-	return net->nft.gencursor + 1 == 1 ? 1 : 0;
++	return nft_pernet(net)->gencursor + 1 == 1 ? 1 : 0;
+ }
+ 
+ static inline u8 nft_genmask_next(const struct net *net)
+@@ -1360,7 +1387,7 @@ static inline u8 nft_genmask_next(const struct net *net)
+ static inline u8 nft_genmask_cur(const struct net *net)
+ {
+ 	/* Use READ_ONCE() to prevent refetching the value for atomicity */
+-	return 1 << READ_ONCE(net->nft.gencursor);
++	return 1 << READ_ONCE(nft_pernet(net)->gencursor);
+ }
+ 
+ #define NFT_GENMASK_ANY		((1 << 0) | (1 << 1))
+@@ -1598,26 +1625,9 @@ void nf_tables_trans_destroy_flush_work(void);
+ int nf_msecs_to_jiffies64(const struct nlattr *nla, u64 *result);
+ __be64 nf_jiffies64_to_msecs(u64 input);
+ 
+-struct nftables_pernet {
+-	struct list_head	tables;
+-	struct list_head	commit_list;
+-	struct list_head	binding_list;
+-	struct list_head	module_list;
+-	struct list_head	notify_list;
+-	struct mutex		commit_mutex;
+-	u64			tstamp;
+-	unsigned int		base_seq;
+-	u8			validate_state;
+-	unsigned int		gc_seq;
+-};
+-
+-extern unsigned int nf_tables_net_id;
+-
+ static inline u64 nft_net_tstamp(const struct net *net)
+ {
+-	struct nftables_pernet *nft_net = net_generic(net, nf_tables_net_id);
+-
+-	return nft_net->tstamp;
++	return nft_pernet(net)->tstamp;
+ }
+ 
+ #endif /* _NET_NF_TABLES_H */
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 04fda8c14..45ba5a7c8 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -28,6 +28,7 @@
+ #define NFT_SET_MAX_ANONLEN 16
+ 
+ unsigned int nf_tables_net_id __read_mostly;
++EXPORT_SYMBOL_GPL(nf_tables_net_id);
+ 
+ static LIST_HEAD(nf_tables_expressions);
+ static LIST_HEAD(nf_tables_objects);
+@@ -8629,7 +8630,7 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
+ 	gc_seq = nft_gc_seq_begin(nft_net);
+ 
+ 	/* step 3. Start new generation, rules_gen_X now in use. */
+-	net->nft.gencursor = nft_gencursor_next(net);
++	nft_pernet(net)->gencursor = nft_gencursor_next(net);
+ 
+ 	list_for_each_entry_safe(trans, next, &nft_net->commit_list, list) {
+ 		nf_tables_commit_audit_collect(&adl, trans->ctx.table,
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index b0d711d49..4e9939c10 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -209,7 +209,7 @@ nft_do_chain(struct nft_pktinfo *pkt, void *priv)
+ 	struct nft_regs regs = {};
+ 	unsigned int stackptr = 0;
+ 	struct nft_jumpstack jumpstack[NFT_JUMP_STACK_SIZE];
+-	bool genbit = READ_ONCE(net->nft.gencursor);
++	bool genbit = READ_ONCE(nft_pernet(net)->gencursor);
+ 	struct nft_traceinfo info;
+ 
+ 	info.trace = false;
+diff --git a/net/netfilter/nft_chain_nat.c b/net/netfilter/nft_chain_nat.c
+index eac4a9012..0e4e10091 100644
+--- a/net/netfilter/nft_chain_nat.c
++++ b/net/netfilter/nft_chain_nat.c
+@@ -1,6 +1,9 @@
+ // SPDX-License-Identifier: GPL-2.0
+ 
+ #include <linux/module.h>
++#include <linux/list.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
+ #include <linux/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_nat.h>
+ #include <net/netfilter/nf_tables.h>
+@@ -75,14 +78,77 @@ static const struct nft_chain_type nft_chain_nat_ipv6 = {
+ #endif
+ 
+ #ifdef CONFIG_NF_TABLES_INET
++/*
++ * The stock kernel does not build nf_nat_inet_register_fn() (it requires
++ * CONFIG_NF_TABLES_INET built into the kernel).  Register the inet nat chain
++ * by giving the exported per-family helpers a pf-corrected copy of the
++ * chain's nf_hook_ops and registering on IPv4 and IPv6.  The copies must
++ * outlive registration (nf_hook_entries stores the ops pointer), so they are
++ * tracked per original ops pointer and freed on unregister.
++ */
++struct nft_nat_inet_entry {
++	struct nf_hook_ops		v4;
++	struct nf_hook_ops		v6;
++	struct hlist_node		node;
++	const struct nf_hook_ops	*orig;
++};
++
++static DEFINE_MUTEX(nft_nat_inet_lock);
++static HLIST_HEAD(nft_nat_inet_entries);
++
+ static int nft_nat_inet_reg(struct net *net, const struct nf_hook_ops *ops)
+ {
+-	return nf_nat_inet_register_fn(net, ops);
++	struct nft_nat_inet_entry *e;
++	int ret;
++
++	e = kzalloc(sizeof(*e), GFP_KERNEL);
++	if (!e)
++		return -ENOMEM;
++
++	e->v4 = *ops;
++	e->v4.pf = NFPROTO_IPV4;
++	e->v6 = *ops;
++	e->v6.pf = NFPROTO_IPV6;
++	e->orig = ops;
++
++	ret = nf_nat_ipv4_register_fn(net, &e->v4);
++	if (ret < 0)
++		goto err;
++
++	ret = nf_nat_ipv6_register_fn(net, &e->v6);
++	if (ret < 0) {
++		nf_nat_ipv4_unregister_fn(net, &e->v4);
++		goto err;
++	}
++
++	mutex_lock(&nft_nat_inet_lock);
++	hlist_add_head(&e->node, &nft_nat_inet_entries);
++	mutex_unlock(&nft_nat_inet_lock);
++
++	return 0;
++err:
++	kfree(e);
++	return ret;
+ }
+ 
+ static void nft_nat_inet_unreg(struct net *net, const struct nf_hook_ops *ops)
+ {
+-	nf_nat_inet_unregister_fn(net, ops);
++	struct nft_nat_inet_entry *e = NULL;
++
++	mutex_lock(&nft_nat_inet_lock);
++	hlist_for_each_entry(e, &nft_nat_inet_entries, node) {
++		if (e->orig == ops) {
++			hlist_del(&e->node);
++			break;
++		}
++	}
++	mutex_unlock(&nft_nat_inet_lock);
++
++	if (e && e->orig == ops) {
++		nf_nat_ipv4_unregister_fn(net, &e->v4);
++		nf_nat_ipv6_unregister_fn(net, &e->v6);
++		kfree(e);
++	}
+ }
+ 
+ static const struct nft_chain_type nft_chain_nat_inet = {
