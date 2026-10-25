@@ -1,0 +1,70 @@
+From ef5642b30944b58fbe830a9293ef0cf08f745d41 Mon Sep 17 00:00:00 2001
+From: TanakaLun <2709410138@qq.com>
+Date: Sun, 25 Oct 2026 22:08:26 +0800
+Subject: [PATCH] usb: dwc3: gadget: reset pullup state when the gadget driver
+ stops
+
+A pullup(0) that runs while the dwc3 core is runtime-suspended is
+skipped by dwc3_gadget_pullup, leaving pullups_connected set although
+the gadget driver is being removed. The next bind calls pullup(1), which
+sees pullups_connected already true and returns without bringing the
+controller up: ep0 is never re-armed, and the host's control transfers
+fail silently, so enumeration stays at the reset (default) state.
+
+This is exactly what happens on OnePlus/android kernels when Android's
+configfs gadget (g1) is torn down via sys.usb.config while the core is
+suspended, and a hand-built gadget binds in its place. Android's own
+rebind recovers only because it happens while the core is awake.
+
+Clear pullups_connected and connected on stop, so the next pullup(1)
+always does the full bring-up regardless of what happened while the
+previous driver was bound.
+
+Also raise f_hid's HIDG_MINORS from 4 to 16: four f_hid instances are
+fewer than a normal session creates (check probes plus two hid
+functions per start), and hitting the cap makes creating the function
+fail with ENODEV, reported as if the kernel had no HID support.
+---
+ drivers/usb/dwc3/gadget.c           | 12 ++++++++++++
+ drivers/usb/gadget/function/f_hid.c |  2 +-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/dwc3/gadget.c b/drivers/usb/dwc3/gadget.c
+index 180d7b1bd..02348e322 100755
+--- a/drivers/usb/dwc3/gadget.c
++++ b/drivers/usb/dwc3/gadget.c
+@@ -2912,6 +2912,18 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
+ 	unsigned long		flags;
+ 
+ 	spin_lock_irqsave(&dwc->lock, flags);
++	/*
++	 * A pullup(0) issued while the core was runtime-suspended skips the
++	 * disconnect (see dwc3_gadget_pullup), leaving pullups_connected set
++	 * although the gadget driver is gone. The next bind's pullup(1) would
++	 * then see pullups_connected already true and skip the whole bring-up:
++	 * ep0 is never re-armed and the host's control transfers fail silently
++	 * (enumeration stalls at "default"). Forget the stale state here, so
++	 * the next pullup always brings the controller up whatever happened
++	 * while this stop ran.
++	 */
++	dwc->pullups_connected	= false;
++	dwc->connected		= false;
+ 	dwc->gadget_driver	= NULL;
+ 	dwc->max_cfg_eps = 0;
+ 	spin_unlock_irqrestore(&dwc->lock, flags);
+diff --git a/drivers/usb/gadget/function/f_hid.c b/drivers/usb/gadget/function/f_hid.c
+index ba018aeb2..bc41a8d7d 100644
+--- a/drivers/usb/gadget/function/f_hid.c
++++ b/drivers/usb/gadget/function/f_hid.c
+@@ -20,7 +20,7 @@
+ #include "u_f.h"
+ #include "u_hid.h"
+ 
+-#define HIDG_MINORS	4
++#define HIDG_MINORS	16
+ 
+ static int major, minors;
+ static struct class *hidg_class;
+-- 
+2.56.0
+
