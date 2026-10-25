@@ -1,0 +1,26 @@
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -1558,10 +1558,20 @@
+ 	if (!android_device)
+ 		return 0;
+ 
+-	gi = dev_get_drvdata(android_device);
+-	spin_lock_irqsave(&gi->spinlock, flags);
++	/*
++	 * Several gadgets can exist at once (Android's g1 and a hand-built one),
++	 * and android_device is only ever set to the first gadget's device. Taking
++	 * gi from it reads another gadget's unbind flag, so every SETUP for this
++	 * gadget is dropped without a reply and without a stall (the host times
++	 * out and calls the device descriptor read failed). Use the bound
++	 * gadget's own gi, as configfs_composite_unbind does.
++	 */
+ 	cdev = get_gadget_data(gadget);
+-	if (!cdev || gi->unbind) {
++	if (!cdev)
++		return 0;
++	gi = container_of(cdev, struct gadget_info, cdev);
++	spin_lock_irqsave(&gi->spinlock, flags);
++	if (gi->unbind) {
+ 		spin_unlock_irqrestore(&gi->spinlock, flags);
+ 		return 0;
+ 	}

@@ -331,6 +331,19 @@ jobs:
           grep -q 'usba probe: ep_queue' drivers/usb/dwc3/gadget.c
           echo "ep0 enumeration probes applied and verified"
 
+      - name: Fix configfs android_setup to use the bound gadget's gi
+        run: |
+          # android_device 只记录开机时第一个创建的 gadget（安卓的 g1）。usb-arsenal
+          # 接管时拆掉 g1 后，g1 的 gi->unbind=1，而 android_setup 一直读 g1 的 gi，
+          # 于是 usb-arsenal 的每个 SETUP 都被静默丢弃（不回复、不 STALL，主机超时，
+          # 报设备描述符请求失败）。改为从绑定的 gadget 的 cdev 推 gi（同
+          # configfs_composite_unbind 的做法）。
+          cd kernel_workspace/kernel_platform/common
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/configfs-setup-gi.patch
+          patch -p1 --forward < configfs-setup-gi.patch
+          grep -q 'gi = container_of(cdev, struct gadget_info, cdev)' drivers/usb/gadget/configfs.c
+          echo "configfs android_setup gi fix applied and verified"
+
       - name: Configure Kernel Options
         run: |
           cd kernel_workspace/kernel_platform/common
