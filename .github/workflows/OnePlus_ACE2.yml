@@ -92,6 +92,11 @@ on:
         required: false
         type: boolean
         default: true
+      fhid:
+        description: "启用USB-Arsenal的HID功能的增强选项"
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   build:
@@ -174,23 +179,14 @@ jobs:
       - name: Apply Droidspaces kernel patches (5.10 SYSVIPC ABI + midas fix)
         if: ${{ inputs.container_ns }}
         run: |
-          # 同平台 Action-Build 的 android12-5.10 方案：
-          # 1) 注释原 sysvsem/sysvshm，在 sched_class 后以 #ifndef __GENKSYMS__ 重插
-          #    （运行时保留字段、genksyms CRC 与 stock 一致 → vendor 模块能加载）
-          # 2) user_struct 的 mq_bytes 挪进 KABI 槽1
-          # 3) ghost-task-for-midas：修 oplus_bsp_midas 模块 find_task_by_vpid
-          #    NULL 解引用（启用容器 namespace 后开机崩溃的真凶）
           cd kernel_workspace/kernel_platform/common
           sed -i 's/^\(\t\)struct sysv_sem\b.*sysvsem;/\1\/\/ struct sysv_sem\t\t\tsysvsem;/' include/linux/sched.h
           sed -i 's/^\(\t\)struct sysv_shm\b.*sysvshm;/\1\/\/ struct sysv_shm\t\t\tsysvshm;/' include/linux/sched.h
           sed -i '/^\tconst struct sched_class\t\*sched_class;/a \\n#ifndef __GENKSYMS__\n\tstruct sysv_sem\t\t\tsysvsem;\n\tstruct sysv_shm\t\t\tsysvshm;\n#endif\n' include/linux/sched.h
           sed -i 's/^\tunsigned long mq_bytes;\t\/\* How many bytes can be allocated to mqueue[?] \*\//\t\/\/unsigned long mq_bytes;\t\/* How many bytes can be allocated to mqueue? *\//' include/linux/sched/user.h
           sed -i '/struct ratelimit_state ratelimit;/,/ANDROID_OEM_DATA_ARRAY(1, 2);/{/^\tANDROID_KABI_RESERVE(1);/{N;N;s/^\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);/#if defined(CONFIG_POSIX_MQUEUE)\n\tANDROID_KABI_USE(1, unsigned long mq_bytes);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#else\n\tANDROID_KABI_RESERVE(1);\n\tANDROID_KABI_RESERVE(2);\n\tANDROID_OEM_DATA_ARRAY(1, 2);\n#endif/}}' include/linux/sched/user.h
-          # Patches come from raw.githubusercontent.com as the fuse-bpf step does: a runner can
-          # come up without Patches/ materialized from the checkout, so never read it from the workspace
           wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/ghost-task-for-midas.patch
           patch -p1 --forward < ghost-task-for-midas.patch || true
-          # 强制校验（任一失败即构建失败，绝不产出会刷砖的内核）
           grep -q '#ifndef __GENKSYMS__' include/linux/sched.h
           grep -q 'ANDROID_KABI_USE(1, unsigned long mq_bytes)' include/linux/sched/user.h
           grep -q 'ghost_task' kernel/pid.c
@@ -279,13 +275,9 @@ jobs:
       - name: Apply nftables KMI workaround patch (ext_net, built-in)
         if: ${{ inputs.nftables }}
         run: |
-          # 与 Ace2_NFT_BetterNet_CNS.zip 同款方案（已在设备实测）：
-          # 把 nftables 的 per-net 状态放进 net_alloc() 分配的 ext_net 容器，
-          # struct net 布局保持出厂一致 → 不破坏 GKI KMI，厂商 vendor_dlkm 模块照常加载。
           cd kernel_workspace/kernel_platform/common
           wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/nftables-kmi-workaround.patch
           patch -p1 --forward < nftables-kmi-workaround.patch
-          # 强制校验：struct net 里不能再有 nft 字段（KMI 不兼容的标志）
           if grep -q 'struct netns_nftables.*nft;' include/net/net_namespace.h; then
             echo "!! struct net 仍嵌入 nft 字段，KMI 不兼容"
             exit 1
@@ -294,21 +286,13 @@ jobs:
           echo "nftables ext_net KMI workaround applied (struct net layout unchanged)"
 
       - name: Apply USB Arsenal f_hid bInterval patch (HID interval)
+        if: ${{ inputs.fhid }}
         run: |
-          # usb-arsenal 的 `hid start --interval N` 需要 f_hid 暴露一个可写的
-          # configfs interval 属性：默认 0 保持内核编译期 bInterval（1ms），
-          # 非 0 则在 bind 时覆盖 fs/hs/ss 端点的 bInterval（高速下 2^(N-1) × 125us，
-          # N=1 即 125us）。已对 OnePlusOSS android12-5.10 源码实测 git apply --check
-          # 干净应用（本仓库 kernel-src 同源）。CONFIG_USB_CONFIGFS_F_HID 出厂已是 =y。
           cd kernel_workspace/kernel_platform/common
-          # Patch comes from raw.githubusercontent.com as the fuse-bpf step does: a runner can
-          # come up without Patches/ materialized from the checkout, so never read it from the workspace
           wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/usb-gadget-hid-binterval.patch
           patch -p1 --forward < usb-gadget-hid-binterval.patch
-          # 强制校验：属性注册与 struct 字段都在才认为成功，绝不产出没带 interval 的内核
           grep -q 'f_hid_opts_attr_interval' drivers/usb/gadget/function/f_hid.c
           grep -q 'unsigned char.*interval;' drivers/usb/gadget/function/u_hid.h
-          # 防御：源码分支若没开 F_HID 就补上（stock 已有，此行通常不生效）
           grep -q '^CONFIG_USB_CONFIGFS_F_HID=' arch/arm64/configs/gki_defconfig || echo 'CONFIG_USB_CONFIGFS_F_HID=y' >> arch/arm64/configs/gki_defconfig
           echo "USB Arsenal f_hid bInterval patch applied and verified"
 
@@ -405,10 +389,6 @@ jobs:
           fi
           
           if [ "${{ inputs.nftables }}" == "true" ]; then
-            # ext_net KMI workaround 内置配置（与 Patches/nftables-kmi-workaround.patch 配套）：
-            # per-net 状态在 ext_net 容器里，struct net 布局与出厂一致 → 不破坏 KMI
-            # 全部表达式 =y 内置，六大族全开；不含 bridge（stock 无 hooks_bridge）
-            # 与 synproxy（enum nf_ct_ext_id）；含 nf_log 使 `log` 表达式可用
             {
              echo "CONFIG_NF_TABLES=y"
              echo "CONFIG_NF_TABLES_INET=y"
@@ -464,10 +444,6 @@ jobs:
           fi
 
           if [ "${{ inputs.container_ns }}" == "true" ]; then
-            # 容器 / systemd 所需配置（与同平台 Action-Build DROID_SPACES 一致）。
-            # SYSVIPC/POSIX_MQUEUE/IPC_NS 需配套上面的
-            # "Apply Droidspaces kernel patches" 步骤（5.10 ABI + midas 修复），
-            # 否则 oplus_bsp_midas 模块 NULL 解引用 + ABI 失配会开机崩溃。
             echo "CONFIG_SYSVIPC=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_POSIX_MQUEUE=y" >> ./arch/arm64/configs/gki_defconfig
             echo "CONFIG_IPC_NS=y" >> ./arch/arm64/configs/gki_defconfig
@@ -547,7 +523,7 @@ jobs:
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-          name: Ace2_${{ inputs.ksu_type == 'none' && '' || inputs.ksu_type }}${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}
+          name: Ace2_${{ inputs.ksu_type == 'none' && '' || inputs.ksu_type }}${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}${{ inputs.fhid && '_FHID' || '' }}
           path: ./AnyKernel3/*
           
       - name: Get bot script
@@ -559,7 +535,7 @@ jobs:
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             cd AnyKernel3
-            FEATURE_SUFFIX="${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}"
+            FEATURE_SUFFIX="${{ inputs.susfs && '_SUSFS' || '' }}${{ inputs.kpm && '_KPM' || '' }}${{ inputs.better_net && '_BetterNet' || '' }}${{ inputs.baseband_guard && '_BBG' || '' }}${{ inputs.lz4kd && '_LZ4KD' || '' }}${{ inputs.adios && '_ADIOS' || '' }}${{ inputs.bbr && '_BBR' || '' }}${{ inputs.container_ns && '_CNS' || '' }}${{ inputs.fhid && '_FHID' || '' }}"
             KSU_TYPE="${{ inputs.ksu_type }}"
             if [ "$KSU_TYPE" == "none" ]; then
               FILENAME_PREFIX="Ace2"
@@ -586,3 +562,4 @@ jobs:
           SSG: ${{ inputs.ssg }}
           BBR: ${{ inputs.bbr }}
           CONTAINER_NS: ${{ inputs.container_ns }}
+          F_HID: ${{ inputs.fhid }}
