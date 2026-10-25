@@ -22,7 +22,16 @@
  	if (!dwc->gadget_driver || !vdwc->softconnect || !dwc->connected)
  		goto out;
  
-@@ -885,6 +893,9 @@
+@@ -868,6 +876,8 @@
+ 
+ 	dwc->ep0_next_event = DWC3_EP0_NRDY_STATUS;
+ 	trb = dwc->ep0_trb;
++	pr_info("usba probe: ep0 data event epnum=%d trbsts=%u\n",
++		event->endpoint_number, DWC3_TRB_SIZE_TRBSTS(trb->size));
+ 	trace_dwc3_complete_trb(ep0, trb);
+ 
+ 	r = next_request(&ep0->pending_list);
+@@ -885,6 +895,9 @@
  
  	ur = &r->request;
  

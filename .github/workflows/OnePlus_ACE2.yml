@@ -320,11 +320,15 @@ jobs:
         run: |
           # 追枚举链路：每个 SETUP 包（含 dwc3 vendor 门禁 gadget_driver/
           # softconnect/connected）、每个 ep0 数据阶段完成（TRB 状态）、每次
-          # ep0 STALL 都写一条 dmesg，控制传输失败时自己点名原因。
+          # ep0 STALL 都写一条 dmesg；再探 __dwc3_gadget_ep_queue 的门禁
+          # （endpoint.desc/pullups_connected/connected），定位响应被静默丢弃。
           cd kernel_workspace/kernel_platform/common
           wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/usba-probe-ep0.patch
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/usba-probe-gadget.patch
           patch -p1 --forward < usba-probe-ep0.patch
+          patch -p1 --forward < usba-probe-gadget.patch
           grep -q 'usba probe: ep0 setup' drivers/usb/dwc3/ep0.c
+          grep -q 'usba probe: ep_queue' drivers/usb/dwc3/gadget.c
           echo "ep0 enumeration probes applied and verified"
 
       - name: Configure Kernel Options
