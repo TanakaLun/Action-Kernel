@@ -1,0 +1,34 @@
+--- a/drivers/usb/dwc3/ep0.c
++++ b/drivers/usb/dwc3/ep0.c
+@@ -222,6 +222,8 @@
+ {
+ 	struct dwc3_ep		*dep;
+ 
++	pr_info("usba probe: ep0 STALL\n");
++
+ 	/* reinitialize physical ep1 */
+ 	dep = dwc->eps[1];
+ 	dep->flags = DWC3_EP_ENABLED;
+@@ -822,6 +824,12 @@
+ 	u32 len;
+ 	struct dwc3_vendor	*vdwc = container_of(dwc, struct dwc3_vendor, dwc);
+ 
++	pr_info("usba probe: ep0 setup rt=%02x req=%02x val=%04x idx=%04x len=%04x drv=%d soft=%d conn=%d\n",
++		ctrl->bRequestType, ctrl->bRequest,
++		le16_to_cpu(ctrl->wValue), le16_to_cpu(ctrl->wIndex),
++		le16_to_cpu(ctrl->wLength), !!dwc->gadget_driver,
++		vdwc->softconnect, dwc->connected);
++
+ 	if (!dwc->gadget_driver || !vdwc->softconnect || !dwc->connected)
+ 		goto out;
+ 
+@@ -885,6 +893,9 @@
+ 
+ 	ur = &r->request;
+ 
++	pr_info("usba probe: ep0 data done trbsts=%u status=%d len=%u actual=%u\n",
++		status, ur->status, ur->length, ur->actual);
++
+ 	length = trb->size & DWC3_TRB_SIZE_MASK;
+ 	transferred = ur->length - length;
+ 	ur->actual += transferred;

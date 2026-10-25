@@ -316,6 +316,17 @@ jobs:
           grep -q 'usba probe: hidg unbind' drivers/usb/gadget/function/f_hid.c
           echo "USB Arsenal f_hid rebind fixes (0004, 0005) + probe applied and verified"
 
+      - name: Apply ep0 enumeration probes
+        run: |
+          # 追枚举链路：每个 SETUP 包（含 dwc3 vendor 门禁 gadget_driver/
+          # softconnect/connected）、每个 ep0 数据阶段完成（TRB 状态）、每次
+          # ep0 STALL 都写一条 dmesg，控制传输失败时自己点名原因。
+          cd kernel_workspace/kernel_platform/common
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/usba-probe-ep0.patch
+          patch -p1 --forward < usba-probe-ep0.patch
+          grep -q 'usba probe: ep0 setup' drivers/usb/dwc3/ep0.c
+          echo "ep0 enumeration probes applied and verified"
+
       - name: Configure Kernel Options
         run: |
           cd kernel_workspace/kernel_platform/common
