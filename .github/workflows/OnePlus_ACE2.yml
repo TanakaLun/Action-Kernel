@@ -434,8 +434,9 @@ jobs:
              echo "CONFIG_NF_TABLES_BRIDGE=y"
              echo "CONFIG_NFT_BRIDGE_META=y"
              echo "CONFIG_NFT_BRIDGE_REJECT=y"
-             # 注意：不要加 CONFIG_BRIDGE_NETFILTER —— 它会 select SKB_EXTENSIONS，
-             # 撑大 struct sk_buff，破坏 KMI，预编译 vendor 模块全挂、无法开机。
+             # 不要加 CONFIG_BRIDGE_NETFILTER：实测开启后无法开机（真因待查）。
+             # 注意与 KMI 无关——XFRM 已经 select SKB_EXTENSIONS，
+             # stock 的 struct sk_buff 本来就带 skb_ext 字段。
              # flowtable
              echo "CONFIG_NF_FLOW_TABLE=y"
              echo "CONFIG_NF_FLOW_TABLE_INET=y"
