@@ -272,18 +272,23 @@ jobs:
           curl -sSL https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh -o setup.sh
           bash setup.sh
 
-      - name: Apply nftables KMI workaround patch (ext_net, built-in)
+      - name: Apply nftables net_generic + bridge patch (built-in)
         if: ${{ inputs.nftables }}
         run: |
+          # per-net 状态走 net_generic（gencursor 不嵌 struct net），
+          # bridge 族的 hooks_bridge 数组重定位进 ext_net 容器，
+          # struct net 布局保持出厂一致 → 不破坏 GKI KMI，厂商模块照常加载。
           cd kernel_workspace/kernel_platform/common
-          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/nftables-kmi-workaround.patch
-          patch -p1 --forward < nftables-kmi-workaround.patch
+          wget -q https://raw.githubusercontent.com/TanakaLun/Action-Kernel/refs/heads/main/Patches/nftables-netgen-bridge.patch
+          patch -p1 --forward < nftables-netgen-bridge.patch
+          # 强制校验：struct net 不能有 nft 字段，且 hooks_bridge 走 accessor
           if grep -q 'struct netns_nftables.*nft;' include/net/net_namespace.h; then
             echo "!! struct net 仍嵌入 nft 字段，KMI 不兼容"
             exit 1
           fi
-          grep -q 'struct ext_net' include/net/net_namespace.h
-          echo "nftables ext_net KMI workaround applied (struct net layout unchanged)"
+          grep -q 'nf_hooks_bridge' include/net/net_namespace.h
+          grep -q 'nf_hooks_bridge(net)' net/netfilter/core.c
+          echo "nftables net_generic + bridge patch applied (struct net layout unchanged)"
 
       - name: Apply USB Arsenal f_hid bInterval patch (HID interval)
         if: ${{ inputs.fhid }}
@@ -425,6 +430,12 @@ jobs:
              echo "CONFIG_NF_TABLES_IPV6=y"
              echo "CONFIG_NF_TABLES_ARP=y"
              echo "CONFIG_NF_TABLES_NETDEV=y"
+             # bridge family（hooks_bridge 已重定位进 ext_net，struct net 保持出厂布局）
+             echo "CONFIG_NF_TABLES_BRIDGE=y"
+             echo "CONFIG_NFT_BRIDGE_META=y"
+             echo "CONFIG_NFT_BRIDGE_REJECT=y"
+             # 经典 bridge-netfilter（Docker/containerd 需要 bridge-nf-call-iptables）
+             echo "CONFIG_BRIDGE_NETFILTER=y"
              # flowtable
              echo "CONFIG_NF_FLOW_TABLE=y"
              echo "CONFIG_NF_FLOW_TABLE_INET=y"
